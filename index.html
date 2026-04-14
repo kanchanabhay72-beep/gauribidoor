@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>P.S. Gauri Bidoor - School Manager v7.5</title>
+<title>P.S. Gauri Bidoor - School Manager </title>
 <meta name="theme-color" content="#0f766e">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -35,9 +35,15 @@ try {
       setSyncUI(fbConnected ? 'ok' : 'err');
       if (fbConnected) {
         Object.keys(pendingWrites).forEach(function(key) {
-          fbDB.ref('data/' + key).set(pendingWrites[key])
-            .then(function() { delete pendingWrites[key]; })
-            .catch(function(e) { console.warn('Flush failed:', key, e); });
+          // FIX: Correct path for attendance keys
+          var path = key.indexOf('att_') === 0
+            ? 'data/attendance/' + key.replace('att_', '')
+            : 'data/' + key;
+          var val = pendingWrites[key];
+          var ref = fbDB.ref(path);
+          var p = (val !== null && val !== undefined) ? ref.set(val) : ref.remove();
+          p.then(function() { delete pendingWrites[key]; })
+           .catch(function(e) { console.warn('Flush failed:', key, e); });
         });
       }
     });
@@ -57,7 +63,6 @@ try {
 html { height: 100%; }
 body { background: #f1f5f9; min-height: 100%; overscroll-behavior: none; }
 
-/* ===== LOGIN ===== */
 .login-bg {
   background: linear-gradient(135deg,rgba(15,118,110,.95),rgba(19,78,74,.9),rgba(15,23,42,.95));
   min-height: 100vh; position: relative;
@@ -68,7 +73,6 @@ body { background: #f1f5f9; min-height: 100%; overscroll-behavior: none; }
   pointer-events:none;
 }
 
-/* ===== ANIMATIONS ===== */
 @keyframes float { 0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-10px) rotate(2deg)} }
 @keyframes pulse-glow { 0%,100%{box-shadow:0 0 20px rgba(20,184,166,.3),0 0 40px rgba(20,184,166,.1)} 50%{box-shadow:0 0 30px rgba(20,184,166,.5),0 0 60px rgba(20,184,166,.2)} }
 @keyframes fadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
@@ -91,28 +95,23 @@ body { background: #f1f5f9; min-height: 100%; overscroll-behavior: none; }
 .card-enter { animation:cardEnter .4s ease-out both; }
 .tr-enter { animation:rowEnter .25s ease-out both; }
 
-/* ===== SIDEBAR NAV ===== */
 .sl.active { background:linear-gradient(90deg,rgba(20,184,166,.08),rgba(20,184,166,.15)); color:#0f766e; border-right:3px solid #14b8a6; font-weight:600; }
 .sl:hover:not(.active) { background:rgba(20,184,166,.05); }
 
-/* ===== TABS ===== */
 .tc { display:none; }
 .tc.active { display:block; animation:fadeUp .4s ease-out; }
 .tr:hover { background:rgba(20,184,166,.025); }
 
-/* ===== INPUTS ===== */
 input:focus, select:focus, textarea:focus { outline:none; border-color:#14b8a6 !important; box-shadow:0 0 0 3px rgba(20,184,166,.12); }
 .login-input { background:rgba(255,255,255,.9); border:2px solid rgba(20,184,166,.2); transition:all .3s; }
 .login-input:focus { background:#fff; border-color:#14b8a6; box-shadow:0 0 0 4px rgba(20,184,166,.15); transform:scale(1.02); }
 
-/* ===== BUTTONS ===== */
 .login-btn { background:linear-gradient(135deg,#0f766e,#14b8a6); transition:all .3s; }
 .login-btn:hover { transform:translateY(-2px); box-shadow:0 10px 25px rgba(20,184,166,.4); }
 .login-btn:active { transform:translateY(0); }
 .sc { transition:all .3s cubic-bezier(.4,0,.2,1); }
 .sc:hover { transform:translateY(-3px); box-shadow:0 12px 25px -6px rgba(0,0,0,.1); }
 
-/* ===== ATTENDANCE RADIOS ===== */
 .att-radio-label {
   display:inline-flex; align-items:center; justify-content:center;
   width:2.5rem; height:2.5rem; border-radius:.6rem; border:2px solid #e5e7eb;
@@ -123,25 +122,21 @@ input:focus, select:focus, textarea:focus { outline:none; border-color:#14b8a6 !
 .att-radio-label.rp-on { background:#ecfdf5; border-color:#10b981; color:#059669; transform:scale(1.05); box-shadow:0 0 0 3px rgba(16,185,129,.15); }
 .att-radio-label.ra-on { background:#fff1f2; border-color:#f43f5e; color:#e11d48; transform:scale(1.05); box-shadow:0 0 0 3px rgba(244,63,94,.15); }
 
-/* ===== SYNC ===== */
 .sync-dot { width:8px; height:8px; border-radius:50%; display:inline-block; flex-shrink:0; }
 .sync-ok { background:#10b981; box-shadow:0 0 6px rgba(16,185,166,.5); }
 .sync-err { background:#ef4444; box-shadow:0 0 6px rgba(239,68,68,.5); }
 .sync-wait { background:#f59e0b; animation:syncPulse 1s infinite; }
 .sync-local { background:#94a3b8; }
 
-/* ===== ATT PCT BADGES ===== */
 .att-pct-badge { display:inline-flex; align-items:center; justify-content:center; padding:.25rem .75rem; border-radius:9999px; font-size:.75rem; font-weight:700; min-width:3.5rem; }
 .att-pct-excellent { background:linear-gradient(135deg,#d1fae5,#a7f3d0); color:#047857; border:1px solid #6ee7b7; }
 .att-pct-good { background:linear-gradient(135deg,#fef3c7,#fde68a); color:#b45309; border:1px solid #fbbf24; }
 .att-pct-poor { background:linear-gradient(135deg,#fee2e2,#fecaca); color:#dc2626; border:1px solid #f87171; }
 .att-pct-no-data { background:#f3f4f6; color:#9ca3af; border:1px solid #d1d5db; }
 
-/* ===== BADGES ===== */
 .viewer-badge { background:linear-gradient(135deg,#8b5cf6,#a78bfa); color:white; padding:.25rem .75rem; border-radius:9999px; font-size:.7rem; font-weight:700; }
 .admin-badge { background:linear-gradient(135deg,#0f766e,#14b8a6); color:white; padding:.25rem .75rem; border-radius:9999px; font-size:.7rem; font-weight:700; }
 
-/* ===== MODAL TABS ===== */
 .modal-tabs { display:flex; border-bottom:2px solid #f1f5f9; margin-bottom:1rem; }
 .modal-tab { padding:.5rem 1rem; font-size:.75rem; font-weight:600; color:#94a3b8; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; transition:all .2s; }
 .modal-tab:hover { color:#0f766e; }
@@ -149,7 +144,6 @@ input:focus, select:focus, textarea:focus { outline:none; border-color:#14b8a6 !
 .modal-tab-content { display:none; }
 .modal-tab-content.active { display:block; animation:slideDown .25s ease-out; }
 
-/* ===== HOLIDAY ===== */
 .holiday-toggle { display:flex; align-items:center; gap:.75rem; padding:.85rem 1.25rem; border-radius:1rem; border:2px solid #e5e7eb; cursor:pointer; transition:all .3s cubic-bezier(.4,0,.2,1); background:white; touch-action:manipulation; }
 .holiday-toggle:hover { border-color:#fbbf24; background:#fefce8; }
 .holiday-toggle.checked { border-color:#f59e0b; background:linear-gradient(135deg,#fef9c3,#fefce8); box-shadow:0 4px 16px rgba(245,158,11,.2); }
@@ -165,7 +159,6 @@ input:focus, select:focus, textarea:focus { outline:none; border-color:#14b8a6 !
 .mdm-holiday-row { background: linear-gradient(90deg, #fef9c3, #fefce8) !important; }
 .mdm-holiday-row td { color: #92400e !important; }
 
-/* ===== VIEWER MODE ===== */
 .viewer-mode input[type="text"]:not([readonly]),
 .viewer-mode input[type="number"]:not([readonly]),
 .viewer-mode input[type="tel"]:not([readonly]),
@@ -175,25 +168,19 @@ input:focus, select:focus, textarea:focus { outline:none; border-color:#14b8a6 !
 .viewer-mode textarea:not([readonly]),
 .viewer-mode select { pointer-events:none; opacity:.6; background:#f9fafb !important; }
 
-/* ===== SCROLLBAR ===== */
 ::-webkit-scrollbar { width:4px; height:4px; }
 ::-webkit-scrollbar-track { background:transparent; }
 ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:2px; }
 
-/* ===== GLASS ===== */
 .glass { background:rgba(255,255,255,.97); backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,.3); box-shadow:0 25px 50px -12px rgba(0,0,0,.25); }
 
-/* ===== CONFETTI ===== */
 .confetti { position:absolute; width:8px; height:8px; border-radius:2px; animation:confettiDrop 2s ease-in infinite; }
 
-/* ===== MOBILE TOUCH TARGETS ===== */
 button, a, label { min-height: 36px; }
 .att-radio-label { min-height: 40px; min-width: 40px; }
 
-/* ===== SIDEBAR OVERLAY ===== */
 #sbBg { transition: opacity .3s; }
 
-/* ===== SAFE AREA ===== */
 @supports (padding: max(0px)) {
   .main-safe { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
 }
@@ -201,10 +188,8 @@ button, a, label { min-height: 36px; }
 </head>
 <body class="bg-slate-100 text-gray-900 min-h-screen">
 
-<!-- TOAST -->
 <div id="toastBox" class="fixed top-3 right-3 z-[400] flex flex-col gap-2 max-w-[85vw] pointer-events-none"></div>
 
-<!-- AUTOSAVE -->
 <div id="autosaveIndicator" class="fixed bottom-4 right-4 z-[300] hidden">
   <div class="bg-emerald-600 text-white px-3 py-2 rounded-xl shadow-lg text-xs flex items-center gap-2 font-semibold">
     <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
@@ -212,7 +197,7 @@ button, a, label { min-height: 36px; }
   </div>
 </div>
 
-<!-- ==================== LOGIN ==================== -->
+<!-- LOGIN -->
 <div id="loginPage" class="min-h-screen login-bg flex items-center justify-center p-4 relative overflow-hidden">
   <div class="relative z-10 w-full max-w-sm fu">
     <div class="text-center mb-8">
@@ -221,7 +206,7 @@ button, a, label { min-height: 36px; }
         <div class="absolute inset-2 rounded-full border-2 border-white/30"></div>
       </div>
       <h1 class="text-3xl font-bold text-white tracking-wide mb-2 drop-shadow-lg">P.S. Gauri Bidoor</h1>
-      <p class="text-teal-200/90 text-sm mt-2 tracking-widest uppercase font-medium">🎓 प्रबंधन प्रणाली v7.5</p>
+      <p class="text-teal-200/90 text-sm mt-2 tracking-widest uppercase font-medium">🎓 प्रबंधन प्रणाली v7.6</p>
     </div>
     <div class="glass rounded-3xl p-8 shadow-2xl">
       <div class="space-y-5">
@@ -249,11 +234,10 @@ button, a, label { min-height: 36px; }
   </div>
 </div>
 
-<!-- ==================== MAIN APP ==================== -->
+<!-- MAIN APP -->
 <div id="appPage" class="hidden">
 <div class="flex min-h-screen">
 
-  <!-- SIDEBAR -->
   <aside id="sidebar" class="fixed lg:static inset-y-0 left-0 z-50 w-56 bg-white border-r border-gray-100 flex flex-col -translate-x-full lg:translate-x-0 transition-transform duration-300 shadow-xl">
     <div class="p-4 border-b border-gray-100 bg-gradient-to-br from-teal-600 to-teal-500 shrink-0">
       <div class="flex items-center gap-3">
@@ -286,13 +270,10 @@ button, a, label { min-height: 36px; }
     </div>
   </aside>
 
-  <!-- SIDEBAR BACKDROP -->
   <div id="sbBg" class="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 hidden lg:hidden" onclick="closeSB()"></div>
 
-  <!-- MAIN CONTENT -->
   <main class="flex-1 min-w-0 flex flex-col" id="mainContent">
 
-    <!-- HEADER -->
     <header class="sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-gray-100 px-4 lg:px-6 py-3.5 flex items-center justify-between shadow-sm shrink-0">
       <div class="flex items-center gap-3 min-w-0">
         <button onclick="toggleSB()" class="lg:hidden p-2 hover:bg-gray-100 rounded-xl transition-colors shrink-0">
@@ -315,17 +296,15 @@ button, a, label { min-height: 36px; }
       </div>
     </header>
 
-    <!-- OFFLINE BANNER -->
     <div id="offlineBanner" class="hidden bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center gap-2 shrink-0">
       <i data-lucide="wifi-off" class="w-4 h-4 text-amber-600 shrink-0"></i>
       <p class="text-xs text-amber-700 font-semibold">इंटरनेट नहीं — डेटा local save हो रहा है, online होने पर auto-sync होगा</p>
     </div>
 
-    <!-- TAB CONTENT -->
     <div class="p-4 lg:p-6 flex-1 overflow-auto main-safe">
     <div class="max-w-6xl">
 
-      <!-- ===== DASHBOARD ===== -->
+      <!-- DASHBOARD -->
       <div id="tab-dashboard" class="tc active">
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
           <div class="sc bg-white rounded-2xl p-4 border border-gray-100 shadow-sm overflow-hidden card-enter" style="animation-delay:.05s">
@@ -370,7 +349,7 @@ button, a, label { min-height: 36px; }
         </div>
       </div>
 
-      <!-- ===== STUDENTS ===== -->
+      <!-- STUDENTS -->
       <div id="tab-students" class="tc">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
           <div class="flex gap-2 flex-1">
@@ -387,7 +366,7 @@ button, a, label { min-height: 36px; }
           </button>
         </div>
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div class="overflow-x-auto -webkit-overflow-scrolling-touch">
+          <div class="overflow-x-auto">
             <table class="w-full text-xs min-w-[480px]">
               <thead><tr class="border-b border-gray-100 bg-gray-50/80">
                 <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">क्र.</th>
@@ -408,7 +387,7 @@ button, a, label { min-height: 36px; }
         <p class="text-[11px] text-gray-400 mt-3 ml-1" id="sCount"></p>
       </div>
 
-      <!-- ===== ATTENDANCE ===== -->
+      <!-- ATTENDANCE -->
       <div id="tab-attendance" class="tc">
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
           <div class="flex flex-wrap gap-3 items-end">
@@ -433,7 +412,6 @@ button, a, label { min-height: 36px; }
           </div>
         </div>
 
-        <!-- HOLIDAY SECTION -->
         <div class="mb-4" id="holidaySection">
           <div class="holiday-toggle" id="holidayToggle" onclick="toggleHoliday()">
             <div class="holiday-custom-check" id="holidayCheck">
@@ -496,7 +474,7 @@ button, a, label { min-height: 36px; }
             <i data-lucide="zap" class="w-3.5 h-3.5 text-emerald-600 shrink-0"></i>
             <span class="text-[11px] font-semibold text-emerald-700">ऑटो-सेव — हर click पर save होता है</span>
           </div>
-          <div class="overflow-x-auto -webkit-overflow-scrolling-touch">
+          <div class="overflow-x-auto">
             <table class="w-full text-sm min-w-[320px]">
               <thead><tr class="border-b border-gray-100 bg-gray-50/80">
                 <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-400 uppercase w-10">क्र.</th>
@@ -514,7 +492,7 @@ button, a, label { min-height: 36px; }
         </div>
       </div>
 
-      <!-- ===== MID-DAY MEAL ===== -->
+      <!-- MID-DAY MEAL -->
       <div id="tab-midday" class="tc">
         <div class="grid lg:grid-cols-3 gap-4 mb-4">
           <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 card-enter">
@@ -578,7 +556,7 @@ button, a, label { min-height: 36px; }
                   🏖️ छुट्टियाँ भी दिखाएं
                 </label>
               </div>
-              <div class="overflow-x-auto -webkit-overflow-scrolling-touch max-h-[280px] overflow-y-auto">
+              <div class="overflow-x-auto max-h-[280px] overflow-y-auto">
                 <table class="w-full text-xs min-w-[380px]">
                   <thead class="sticky top-0 bg-white z-10">
                     <tr class="border-b border-gray-100 bg-gray-50/80">
@@ -646,7 +624,7 @@ button, a, label { min-height: 36px; }
         </div>
       </div>
 
-      <!-- ===== FINANCE ===== -->
+      <!-- FINANCE -->
       <div id="tab-finance" class="tc">
         <div class="grid lg:grid-cols-3 gap-4 mb-4">
           <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 card-enter">
@@ -681,7 +659,7 @@ button, a, label { min-height: 36px; }
                 <option value="">सभी</option><option value="curr">इस माह</option>
               </select>
             </div>
-            <div class="overflow-x-auto -webkit-overflow-scrolling-touch max-h-[300px] overflow-y-auto">
+            <div class="overflow-x-auto max-h-[300px] overflow-y-auto">
               <table class="w-full text-xs min-w-[320px]">
                 <thead class="sticky top-0 bg-white"><tr class="border-b border-gray-100 bg-gray-50/80">
                   <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-400 uppercase">तारीख</th>
@@ -700,7 +678,7 @@ button, a, label { min-height: 36px; }
         </div>
       </div>
 
-      <!-- ===== TEACHERS ===== -->
+      <!-- TEACHERS -->
       <div id="tab-teachers" class="tc">
         <div id="addTeacherBtnContainer" class="flex justify-end mb-4">
           <button onclick="openTeacherModal()" class="bg-gradient-to-r from-teal-600 to-teal-500 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-lg transition-all hover:-translate-y-0.5">
@@ -710,30 +688,40 @@ button, a, label { min-height: 36px; }
         <div id="teacherList" class="grid sm:grid-cols-2 gap-4"></div>
       </div>
 
-      <!-- ===== REPORT ===== -->
+      <!-- REPORT -->
       <div id="tab-report" class="tc">
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 card-enter">
-          <div class="flex flex-wrap gap-3 items-end">
-            <div>
-              <label class="text-[10px] font-semibold text-gray-400 uppercase block mb-1.5">महीना</label>
-              <select id="rpM" onchange="dR()" class="border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white shadow-sm">
-                <option value="0">जनवरी</option><option value="1">फरवरी</option><option value="2">मार्च</option>
-                <option value="3">अप्रैल</option><option value="4">मई</option><option value="5">जून</option>
-                <option value="6">जुलाई</option><option value="7">अगस्त</option><option value="8">सितंबर</option>
-                <option value="9">अक्टूबर</option><option value="10">नवंबर</option><option value="11">दिसंबर</option>
-              </select>
+          <div class="flex flex-wrap gap-3 items-end justify-between">
+            <div class="flex flex-wrap gap-3">
+              <div>
+                <label class="text-[10px] font-semibold text-gray-400 uppercase block mb-1.5">महीना</label>
+                <select id="rpM" onchange="dR()" class="border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white shadow-sm">
+                  <option value="0">जनवरी</option><option value="1">फरवरी</option><option value="2">मार्च</option>
+                  <option value="3">अप्रैल</option><option value="4">मई</option><option value="5">जून</option>
+                  <option value="6">जुलाई</option><option value="7">अगस्त</option><option value="8">सितंबर</option>
+                  <option value="9">अक्टूबर</option><option value="10">नवंबर</option><option value="11">दिसंबर</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-[10px] font-semibold text-gray-400 uppercase block mb-1.5">वर्ष</label>
+                <select id="rpY" onchange="dR()" class="border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white shadow-sm" id="rpY"></select>
+              </div>
+              <div>
+                <label class="text-[10px] font-semibold text-gray-400 uppercase block mb-1.5">कक्षा</label>
+                <select id="rpC" onchange="dR()" class="border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white shadow-sm">
+                  <option value="">सभी</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <label class="text-[10px] font-semibold text-gray-400 uppercase block mb-1.5">कक्षा</label>
-              <select id="rpC" onchange="dR()" class="border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white shadow-sm">
-                <option value="">सभी</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
-              </select>
-            </div>
+            <!-- FIX: Sync button in report tab for fresh Firebase data -->
+            <button onclick="syncAndRefreshReport()" class="bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-700 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>Firebase से Refresh
+            </button>
           </div>
         </div>
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 card-enter" id="rpBars"></div>
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden card-enter">
-          <div class="overflow-x-auto -webkit-overflow-scrolling-touch">
+          <div class="overflow-x-auto">
             <table class="w-full text-xs min-w-[360px]">
               <thead><tr class="border-b border-gray-100 bg-gray-50/80">
                 <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-400 uppercase">तारीख</th>
@@ -752,10 +740,10 @@ button, a, label { min-height: 36px; }
         </div>
       </div>
 
-      <!-- ===== SETTINGS ===== -->
+      <!-- SETTINGS -->
       <div id="tab-settings" class="tc">
         <div class="max-w-md space-y-4">
-          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 card-enter">
+          <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p5 card-enter p-5">
             <h3 class="font-bold text-sm text-gray-800 mb-4">☁️ Cloud Sync</h3>
             <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl mb-2">
               <div class="flex items-center gap-2">
@@ -798,8 +786,8 @@ button, a, label { min-height: 36px; }
         </div>
       </div>
 
-    </div><!-- max-w-6xl -->
-    </div><!-- p-4 -->
+    </div>
+    </div>
   </main>
 </div>
 </div>
@@ -811,13 +799,17 @@ button, a, label { min-height: 36px; }
 
 <script>
 // ============================================================
-// P.S. GAURI BIDOOR v7.5 — FIXED
-// Bugs fixed: form field access, listeners, mobile UX, autosave
+// P.S. GAURI BIDOOR v7.6
+// FIXES:
+// 1. fbPush: correct Firebase path for att_ keys
+// 2. startRealtimeListeners: pulls ALL attendance from Firebase on login
+// 3. Report tab: year selector added, works across years
+// 4. Report tab: "Firebase से Refresh" button to pull latest data
+// 5. pendingWrites flush: correct path mapping
 // ============================================================
 
 var currentUserRole = 'admin';
 var autosaveTimerID = null;
-var attSaveTimerID = null;
 var fbPushTimerMap = {};
 var activeListeners = {};
 
@@ -829,8 +821,7 @@ var D = {
   },
   s: function(k, v) {
     try {
-      var str = JSON.stringify(v);
-      localStorage.setItem('g_' + k, str);
+      localStorage.setItem('g_' + k, JSON.stringify(v));
       return true;
     } catch(e) {
       if (e.name === 'QuotaExceededError') toast('❌ Storage भर गया! Export करें।', 0);
@@ -921,11 +912,10 @@ function showAutosave(msg) {
 // ===== MODAL =====
 function openM(h) {
   var mb = document.getElementById('mBody');
-  var modal = document.getElementById('modal');
   mb.innerHTML = h;
+  var modal = document.getElementById('modal');
   modal.classList.remove('hidden');
   modal.classList.add('flex');
-  // Prevent body scroll
   document.body.style.overflow = 'hidden';
   setTimeout(function() { lucide.createIcons(); }, 10);
 }
@@ -940,19 +930,14 @@ function closeM() {
 function toggleSB() {
   var sb = document.getElementById('sidebar');
   var bg = document.getElementById('sbBg');
-  var isOpen = !sb.classList.contains('-translate-x-full');
-  if (isOpen) {
-    closeSB();
-  } else {
+  if (sb.classList.contains('-translate-x-full')) {
     sb.classList.remove('-translate-x-full');
     bg.classList.remove('hidden');
-  }
+  } else { closeSB(); }
 }
 function closeSB() {
-  var sb = document.getElementById('sidebar');
-  var bg = document.getElementById('sbBg');
-  sb.classList.add('-translate-x-full');
-  bg.classList.add('hidden');
+  document.getElementById('sidebar').classList.add('-translate-x-full');
+  document.getElementById('sbBg').classList.add('hidden');
 }
 
 // ===== SYNC UI =====
@@ -964,30 +949,29 @@ function setSyncUI(s) {
   var sTxt = document.getElementById('settingsSyncText');
   var cls = {wait:'sync-wait', ok:'sync-ok', local:'sync-local', err:'sync-err'}[s] || 'sync-local';
   var label = {wait:'Syncing...', ok:'Cloud ✓', local:'Local', err:'Offline'}[s] || 'Local';
-  if (dot) { dot.className = 'sync-dot ' + cls; }
+  if (dot) dot.className = 'sync-dot ' + cls;
   if (txt) txt.textContent = label;
-  if (sDot) { sDot.className = 'sync-dot ' + cls; }
+  if (sDot) sDot.className = 'sync-dot ' + cls;
   if (sTxt) sTxt.textContent = s==='ok' ? '☁️ Firebase Connected' : s==='err' ? '📵 Offline — local save हो रहा है' : s==='wait' ? '⏳ Syncing...' : '💾 Local only';
   if (banner) banner.classList.toggle('hidden', s !== 'err');
 }
 
-// ===== FIREBASE PUSH (debounced, with offline queue) =====
+// ===== FIREBASE PUSH (FIX: correct path for att_ keys) =====
 function fbPush(key, val) {
   if (!fbDB) return;
-  // Debounce: clear existing timer for this key
   if (fbPushTimerMap[key]) clearTimeout(fbPushTimerMap[key]);
   fbPushTimerMap[key] = setTimeout(function() {
-    var ref;
-    if (['students','finance','midday','teachers','holidays','holiday_reasons','pass','viewer_pass'].indexOf(key) !== -1) {
-      ref = fbDB.ref('data/' + key);
-    } else if (key.indexOf('att_') === 0) {
-      var dk = key.replace('att_', '');
-      ref = fbDB.ref('data/attendance/' + dk);
-    } else { return; }
-
+    var path;
+    if (key.indexOf('att_') === 0) {
+      // FIX: attendance goes under data/attendance/{date}
+      path = 'data/attendance/' + key.replace('att_', '');
+    } else {
+      path = 'data/' + key;
+    }
+    var ref = fbDB.ref(path);
     if (fbConnected) {
-      var promise = val !== null && val !== undefined ? ref.set(val) : ref.remove();
-      promise.catch(function(e) {
+      var p = (val !== null && val !== undefined) ? ref.set(val) : ref.remove();
+      p.catch(function(e) {
         console.warn('fbPush failed:', key, e.message);
         pendingWrites[key] = val;
       });
@@ -1000,7 +984,6 @@ function fbPush(key, val) {
 // ===== FIREBASE LISTENERS =====
 function fbListenOnce(path, localKey, onUpdate) {
   if (!fbDB) return;
-  // Remove old listener if exists
   if (activeListeners[path]) {
     try { fbDB.ref(path).off('value', activeListeners[path]); } catch(e) {}
   }
@@ -1017,6 +1000,7 @@ function fbListenOnce(path, localKey, onUpdate) {
   activeListeners[path] = handler;
 }
 
+// FIX: Pull ALL attendance data from Firebase on login
 function startRealtimeListeners() {
   if (!fbDB) return;
   var staticKeys = ['students','teachers','finance','midday','holidays','holiday_reasons'];
@@ -1025,24 +1009,32 @@ function startRealtimeListeners() {
   });
   fbListenOnce('data/pass', 'pass', null);
   fbListenOnce('data/viewer_pass', 'viewer_pass', null);
-  // Listen to today's attendance
-  listenAttDate(todayStr());
+
+  // FIX: Listen to entire attendance node, not just today
+  // This ensures report tab gets ALL historical attendance from Firebase
+  var attPath = 'data/attendance';
+  if (activeListeners[attPath]) {
+    try { fbDB.ref(attPath).off('value', activeListeners[attPath]); } catch(e) {}
+  }
+  var attHandler = function(snap) {
+    var val = snap.val();
+    if (val && typeof val === 'object') {
+      Object.keys(val).forEach(function(dateKey) {
+        D.s('att_' + dateKey, val[dateKey]);
+      });
+      refreshCurrentTab();
+    }
+  };
+  fbDB.ref(attPath).on('value', attHandler, function(err) {
+    console.warn('Attendance listener error:', err.message);
+  });
+  activeListeners[attPath] = attHandler;
 }
 
 function listenAttDate(dt) {
+  // With the bulk listener above, individual date listeners are not needed
+  // But we keep this for compatibility
   if (!fbDB || !dt) return;
-  var path = 'data/attendance/' + dt;
-  var localKey = 'att_' + dt;
-  if (activeListeners[path]) return; // already listening
-  fbListenOnce(path, localKey, function() {
-    var activeTab = document.querySelector('.sl.active');
-    var t = activeTab ? activeTab.getAttribute('data-t') : '';
-    if (t === 'attendance') {
-      var curDt = document.getElementById('aD');
-      if (curDt && curDt.value === dt) dA2();
-    }
-    if (t === 'dashboard') dDash();
-  });
 }
 
 // ===== MANUAL SYNC =====
@@ -1060,7 +1052,6 @@ function manualSync() {
     holiday_reasons: D.g('holiday_reasons', {}),
     attendance: {}
   };
-  // Collect all attendance keys
   for (var k in localStorage) {
     if (k.startsWith('g_att_')) {
       try { data.attendance[k.replace('g_att_', '')] = JSON.parse(localStorage.getItem(k)); } catch(e) {}
@@ -1069,6 +1060,27 @@ function manualSync() {
   fbDB.ref('data').set(data)
     .then(function() { setSyncUI('ok'); toast('✅ Cloud sync!'); })
     .catch(function(e) { setSyncUI('err'); toast('❌ Sync failed: ' + e.message, 0); });
+}
+
+// FIX: Report tab - pull fresh attendance from Firebase then render
+function syncAndRefreshReport() {
+  if (!fbDB) { dR(); return; }
+  setSyncUI('wait');
+  fbDB.ref('data/attendance').once('value').then(function(snap) {
+    var val = snap.val();
+    if (val && typeof val === 'object') {
+      Object.keys(val).forEach(function(dateKey) {
+        D.s('att_' + dateKey, val[dateKey]);
+      });
+    }
+    setSyncUI('ok');
+    dR();
+    toast('✅ रिपोर्ट ताज़ा हो गई!');
+  }).catch(function(e) {
+    setSyncUI('err');
+    dR();
+    toast('⚠️ Firebase error: ' + e.message, 0);
+  });
 }
 
 // ===== STORAGE USAGE =====
@@ -1122,6 +1134,8 @@ function doLogin() {
   document.getElementById('rangeFromDate').value = tStr.substring(0, 8) + '01';
   document.getElementById('rangeToDate').value = tStr;
 
+  // Populate year selector for report
+  populateReportYearSelector(today.getFullYear());
   populateMonthSelector();
   go('dashboard');
   lucide.createIcons();
@@ -1130,6 +1144,16 @@ function doLogin() {
   else setSyncUI('local');
 
   toast(currentUserRole === 'admin' ? '🎉 वापसी Admin!' : '👁️ Viewer Mode — Read Only');
+}
+
+function populateReportYearSelector(currentYear) {
+  var sel = document.getElementById('rpY');
+  if (!sel) return;
+  var html = '';
+  for (var y = currentYear; y >= currentYear - 3; y--) {
+    html += '<option value="' + y + '"' + (y === currentYear ? ' selected' : '') + '>' + y + '</option>';
+  }
+  sel.innerHTML = html;
 }
 
 function applyUserRoleUI() {
@@ -1163,7 +1187,6 @@ function hideEl(id) { var e = document.getElementById(id); if (e) e.style.displa
 function showEl(id) { var e = document.getElementById(id); if (e) e.style.display = ''; }
 
 function doLogout() {
-  // Detach all listeners
   for (var path in activeListeners) {
     try { fbDB.ref(path).off('value', activeListeners[path]); } catch(e) {}
   }
@@ -1182,8 +1205,7 @@ function chPass() {
   var n = document.getElementById('setNew').value.trim();
   if (!n || n.length < 4) { toast('नया पासवर्ड कम से कम 4 अक्षर का हो', 0); return; }
   if (o !== D.g('pass', 'gauri')) { toast('पुराना गलत है', 0); return; }
-  D.s('pass', n);
-  fbPush('pass', n);
+  D.s('pass', n); fbPush('pass', n);
   toast('✅ Admin पासवर्ड बदल दिया!');
   document.getElementById('setOld').value = '';
   document.getElementById('setNew').value = '';
@@ -1193,8 +1215,7 @@ function chViewerPass() {
   if (currentUserRole !== 'admin') { toast('⛔ Only Admin!', 0); return; }
   var n = document.getElementById('setViewerNew').value.trim();
   if (!n || n.length < 3) { toast('पासवर्ड कम से कम 3 अक्षर', 0); return; }
-  D.s('viewer_pass', n);
-  fbPush('viewer_pass', n);
+  D.s('viewer_pass', n); fbPush('viewer_pass', n);
   toast('✅ Viewer पासवर्ड बदल दिया!');
   document.getElementById('setViewerNew').value = '';
 }
@@ -1233,13 +1254,7 @@ function go(t) {
   var ti = titles[t] || [t, ''];
   document.getElementById('pgT').textContent = ti[0];
   document.getElementById('pgS').textContent = ti[1];
-  // Close sidebar on mobile
   if (window.innerWidth < 1024) closeSB();
-  // Listen to attendance date when switching to that tab
-  if (t === 'attendance') {
-    var dt = document.getElementById('aD').value;
-    if (dt) listenAttDate(dt);
-  }
   switch(t) {
     case 'dashboard': dDash(); break;
     case 'students': dS2(); break;
@@ -1312,7 +1327,6 @@ function toggleHoliday() {
   D.s('holidays', holidays);
   fbPush('holidays', holidays);
   renderHolidayUI(dt);
-  // Refresh midday if open
   var at = document.querySelector('.sl.active');
   if (at && at.getAttribute('data-t') === 'midday') renderMiddayMonth();
 }
@@ -1334,9 +1348,7 @@ function renderHolidayUI(dt) {
     if (checkIcon) checkIcon.style.opacity = '1';
     if (holidayBanner) holidayBanner.classList.remove('hidden');
     if (holidayReasonBox && currentUserRole === 'admin') holidayReasonBox.classList.remove('hidden');
-    if (attTableWrapper) {
-      attTableWrapper.style.display = 'none';
-    }
+    if (attTableWrapper) attTableWrapper.style.display = 'none';
     if (attSaved) attSaved.classList.add('hidden');
     if (attActionButtons && currentUserRole === 'admin') attActionButtons.style.display = 'none';
     if (holidayLabel) holidayLabel.textContent = 'आज छुट्टी है! ✓';
@@ -1389,9 +1401,9 @@ function calculateMonthlySummary(monthIndex, year) {
     var att = D.g('att_' + dateStr, []) || [];
     if (att.length > 0) {
       workingDays++;
-      var p = att.filter(function(a) { return a.st === 'present'; }).length;
-      totalPresent += p;
-      totalAbsent += att.length - p;
+      var pres = att.filter(function(a) { return a.st === 'present'; }).length;
+      totalPresent += pres;
+      totalAbsent += att.length - pres;
       totalRecords += att.length;
     }
   }
@@ -1426,7 +1438,7 @@ function dDash() {
   if (isHolidayDate(today)) {
     var reason = getHolidayReason(today);
     document.getElementById('dA').textContent = '🏖️';
-    document.getElementById('dAttSum').innerHTML = '<div class="text-center py-8"><div class="text-5xl mb-3" style="animation:holidayBounce 1s ease-in-out infinite">🏖️</div>' +
+    document.getElementById('dAttSum').innerHTML = '<div class="text-center py-8"><div class="text-5xl mb-3">🏖️</div>' +
       '<p class="text-amber-600 font-bold text-base">आज छुट्टी है!</p>' +
       (reason ? '<p class="text-amber-500 text-sm mt-1">📌 ' + reason + '</p>' : '') + '</div>';
     document.getElementById('dM').textContent = '—';
@@ -1524,7 +1536,6 @@ function dS2() {
   setTimeout(function() { lucide.createIcons(); }, 20);
 }
 
-// ===== STUDENT MODAL =====
 function openSM(s) {
   s = s || null;
   if (currentUserRole === 'viewer') { toast('⛔ Viewer cannot add!', 0); return; }
@@ -1644,7 +1655,6 @@ function delS(id) {
 // ===== ATTENDANCE =====
 function onAttDateChange() {
   var dt = document.getElementById('aD').value;
-  if (dt) listenAttDate(dt);
   dA2();
 }
 function dA2() {
@@ -1698,13 +1708,10 @@ function attToggle(sid, val) {
   if (currentUserRole !== 'admin') return;
   var lp = document.getElementById('lp' + sid);
   var la = document.getElementById('la' + sid);
-  // Remove both states
-  if (lp) { lp.classList.remove('rp-on'); }
-  if (la) { la.classList.remove('ra-on'); }
-  // Set new state
+  if (lp) lp.classList.remove('rp-on');
+  if (la) la.classList.remove('ra-on');
   if (val === 'present' && lp) {
     lp.classList.add('rp-on');
-    // Also check the radio
     var rp = lp.querySelector('input[type="radio"]');
     if (rp) rp.checked = true;
   } else if (val === 'absent' && la) {
@@ -1731,13 +1738,11 @@ function autoSaveAttendance() {
     if (r) { rec.push({sid: s.id, st: r.value}); anyMarked = true; }
   });
   if (!anyMarked) return;
-  // Merge with other class data
   var ex = (D.g('att_' + dt, []) || []).filter(function(a) { return !ss.find(function(s) { return s.id === a.sid; }); });
   var final = ex.concat(rec);
   D.s('att_' + dt, final);
   var p = rec.filter(function(r) { return r.st === 'present'; }).length;
   var ab = rec.filter(function(r) { return r.st === 'absent'; }).length;
-  // Update saved banner
   var indicator = document.getElementById('attSaved');
   var info = document.getElementById('attSavedInfo');
   if (indicator && rec.length > 0) {
@@ -1745,7 +1750,7 @@ function autoSaveAttendance() {
     if (info) info.textContent = 'Class ' + clsEl.value + ': ' + p + 'P / ' + ab + 'A — ' + fmtDateIN(dt);
   }
   showAutosave('Class ' + clsEl.value + ': ' + p + 'P / ' + ab + 'A ✓');
-  // Debounced Firebase push
+  // FIX: Now uses correct path via updated fbPush
   fbPush('att_' + dt, final);
 }
 
@@ -1769,7 +1774,6 @@ function saveA() {
   var final = ex.concat(rec);
   D.s('att_' + dt, final);
   var p = rec.filter(function(r) { return r.st === 'present'; }).length;
-  var ab = rec.filter(function(r) { return r.st === 'absent'; }).length;
   toast('✅ Class ' + cls + ': ' + p + '/' + rec.length + ' Present');
   fbPush('att_' + dt, final);
   dA2();
@@ -1986,14 +1990,10 @@ function calculateDateRange() {
 function initFinance() { renderFinanceTable(); }
 function saveFinance() {
   if (currentUserRole !== 'admin') { toast('⛔ Only Admin!', 0); return; }
-  var fDateEl = document.getElementById('fDate');
-  var fDescEl = document.getElementById('fDesc');
+  var date = gv('fDate'), desc = gv('fDesc');
   var fAmountEl = document.getElementById('fAmount');
-  var fTypeEl = document.getElementById('fType');
-  var date = fDateEl ? fDateEl.value : '';
-  var desc = fDescEl ? fDescEl.value.trim() : '';
   var amt = fAmountEl ? parseFloat(fAmountEl.value) : NaN;
-  var type = fTypeEl ? fTypeEl.value : 'expense';
+  var type = gv('fType') || 'expense';
   if (!date || !desc || isNaN(amt) || amt <= 0) { toast('सभी fields भरें', 0); return; }
   var f = D.g('finance', []) || [];
   f.push({id: Date.now(), date: date, desc: desc, amount: amt, type: type});
@@ -2001,6 +2001,7 @@ function saveFinance() {
   D.s('finance', f);
   fbPush('finance', f);
   toast('✅ Entry जोड़ी!');
+  var fDescEl = document.getElementById('fDesc');
   if (fDescEl) fDescEl.value = '';
   if (fAmountEl) fAmountEl.value = '';
   renderFinanceTable();
@@ -2069,8 +2070,7 @@ function renderTeachers() {
       '<div class="absolute top-0 left-0 w-1.5 h-full bg-' + color + '-500 rounded-r"></div>' +
       '<div class="flex items-start gap-3 pl-2">' +
       '<div class="w-12 h-12 bg-' + color + '-100 rounded-2xl flex items-center justify-center text-' + color + '-700 font-bold text-lg shrink-0">' + t.name.charAt(0) + '</div>' +
-      '<div class="flex-1 min-w-0">' +
-      '<h4 class="font-bold text-sm text-gray-800 truncate">' + t.name + '</h4>' +
+      '<div class="flex-1 min-w-0"><h4 class="font-bold text-sm text-gray-800 truncate">' + t.name + '</h4>' +
       '<p class="text-' + color + '-600 text-xs font-semibold">' + t.role + '</p>' +
       '<div class="text-[10px] text-gray-400 mt-0.5"><p>EHRMS: ' + (t.ehrms || '—') + '</p><p>Vendor: ' + (t.vendor || '—') + '</p></div></div>' +
       '<div>' + editBtn + '</div></div>' +
@@ -2086,8 +2086,7 @@ function openTeacherModal(id) {
   var t = id ? (D.g('teachers', []) || []).find(function(x) { return x.id === id; }) : {name:'',role:'प्रभारी शिक्षिका',education:'',ehrms:'',vendor:'',email:'',joining_date:''};
   if (!t) return;
   openM('<div class="p-5">' +
-    '<div class="flex items-center justify-between mb-4">' +
-    '<h3 class="font-bold text-sm">' + (id ? 'Edit' : 'Add') + ' Teacher</h3>' +
+    '<div class="flex items-center justify-between mb-4"><h3 class="font-bold text-sm">' + (id ? 'Edit' : 'Add') + ' Teacher</h3>' +
     '<button onclick="closeM()" class="p-2 hover:bg-gray-100 rounded-xl"><i data-lucide="x" class="w-4 h-4"></i></button></div>' +
     '<div class="space-y-3">' +
     '<input id="tName" value="' + esc(t.name) + '" required placeholder="नाम *" class="w-full border rounded-xl px-4 py-2.5 text-sm">' +
@@ -2105,14 +2104,7 @@ function saveTeacher(id) {
   var nameEl = document.getElementById('tName');
   var name = nameEl ? nameEl.value.trim() : '';
   if (!name) { toast('नाम आवश्यक', 0); return; }
-  var data = {
-    name: name,
-    role: gv('tRole'),
-    ehrms: gv('tEhrms'),
-    vendor: gv('tVendor'),
-    email: gv('tEmail'),
-    joining_date: gv('tJoiningDate')
-  };
+  var data = { name: name, role: gv('tRole'), ehrms: gv('tEhrms'), vendor: gv('tVendor'), email: gv('tEmail'), joining_date: gv('tJoiningDate') };
   var ts = D.g('teachers', []) || [];
   if (id) {
     ts = ts.map(function(t) { return t.id === id ? Object.assign({}, t, data) : t; });
@@ -2138,12 +2130,13 @@ function toggleTeacherAtt(tid) {
   renderTeachers();
 }
 
-// ===== REPORT =====
+// ===== REPORT (FIX: year selector + reads localStorage which is synced from Firebase) =====
 function dR() {
   var miEl = document.getElementById('rpM');
+  var yrEl = document.getElementById('rpY');
   var fcEl = document.getElementById('rpC');
   var mi = miEl ? parseInt(miEl.value) : new Date().getMonth();
-  var yr = new Date().getFullYear();
+  var yr = yrEl ? parseInt(yrEl.value) : new Date().getFullYear();
   var fc = fcEl ? fcEl.value : '';
   var days = new Date(yr, mi + 1, 0).getDate();
   var ss = (D.g('students', []) || []).filter(function(s) { return s.st === 'active' && (!fc || s.cls == fc); });
@@ -2179,7 +2172,7 @@ function dR() {
         return '<div class="flex-1 ' + bc + ' rounded-t-sm" style="height:' + Math.max(r.pct, 2) + '%" title="' + fmtDateIN(r.date, {noYear:true}) + ': ' + r.pct + '%"></div>';
       }).join('') + '</div>';
   } else {
-    barsEl.innerHTML = '<div class="text-center py-8 text-gray-400 text-sm">' + fullMonthYear + ' में कोई डेटा नहीं</div>';
+    barsEl.innerHTML = '<div class="text-center py-8 text-gray-400 text-sm">' + fullMonthYear + ' में कोई डेटा नहीं<br><span class="text-xs text-teal-600 mt-2 block">ऊपर "Firebase से Refresh" बटन दबाएं</span></div>';
   }
   var tb = document.getElementById('rpTb');
   var em = document.getElementById('rpEm');
@@ -2208,7 +2201,7 @@ function expData() {
     pass: D.g('pass', 'gauri'),
     viewer_pass: D.g('viewer_pass', 'viewer'),
     exported: new Date().toISOString(),
-    version: '7.5',
+    version: '7.6',
     attendance: {}
   };
   for (var k in localStorage) {
@@ -2219,7 +2212,7 @@ function expData() {
   var blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'ps_gauri_v75_' + todayStr() + '.json';
+  a.download = 'ps_gauri_v76_' + todayStr() + '.json';
   a.click();
   setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
   toast('✅ Export हो गया!');
@@ -2244,7 +2237,6 @@ function doImp(e) {
           fbPush('att_' + k, d.attendance[k]);
         }
       }
-      // Legacy: direct att_ keys
       for (var k2 in d) {
         if (k2.startsWith('att_')) {
           D.s(k2, d[k2]);
@@ -2265,11 +2257,8 @@ function doImp(e) {
 document.addEventListener('DOMContentLoaded', function() {
   lucide.createIcons();
   setSyncUI(fbDB ? 'wait' : 'local');
-  // Handle back button for modal
   window.addEventListener('popstate', function() { closeM(); });
 });
-
-// Handle keyboard Enter on login
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeM();
 });
