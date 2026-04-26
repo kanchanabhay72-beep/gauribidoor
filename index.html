@@ -1893,8 +1893,20 @@ function calcMidday() {
   if (hNotice) hNotice.classList.add('hidden');
   if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = '1'; }
   var day = new Date(dt + 'T12:00:00').getDay();
+  // Block Sunday
+  if (day === 0) {
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.style.opacity = '0.4'; }
+    document.getElementById('mMealType').textContent = '🚫 रविवार — MDM नहीं';
+    document.getElementById('mCount').textContent = '0';
+    document.getElementById('mQty').textContent = '0 g';
+    document.getElementById('mMealCost').textContent = '0.00';
+    var fbSun = document.getElementById('mFruitBox');
+    if (fbSun) fbSun.classList.add('hidden');
+    document.getElementById('mTotal').textContent = '₹0.00';
+    return null;
+  }
   var att = D.g('att_' + dt, []) || [];
-  // FIX: Report wala exact logic — sirf active students count karo (IDs se match)
+  // Same as Report: only active students
   var activeStudents = D.g('students', []) || [];
   var activeIds = activeStudents.filter(function(s){ return s.st === 'active'; }).map(function(s){ return s.id; });
   var cnt = att.filter(function(a) { return a.st === 'present' && activeIds.indexOf(a.sid) !== -1; }).length;
@@ -1903,14 +1915,15 @@ function calcMidday() {
 }
 
 function _renderMiddayCalc(dt, day, cnt) {
-  // Sunday=0, Saturday=6 — no meal
+  // SCHOOL DAYS: Mon-Sat (1-6). Sunday=0 only is off.
+  // Grain: Mon=1, Thu=4 → Wheat. Tue=2, Wed=3, Fri=5, Sat=6 → Rice
   var mealType;
   if (day === 0) mealType = 'रविवार — अवकाश';
-  else if (day === 6) mealType = 'शनिवार — अवकाश';
   else if (day === 1 || day === 4) mealType = 'गेहूं (Wheat)';
   else mealType = 'चावल (Rice)';
 
-  var qty = (day === 0 || day === 6) ? 0 : cnt * 100;
+  var isOff = (day === 0);
+  var qty = isOff ? 0 : cnt * 100;
   var fruitCost = 0;
   var fruitBox = document.getElementById('mFruitBox');
   if (day === 1 && cnt > 0) {
@@ -1924,14 +1937,14 @@ function _renderMiddayCalc(dt, day, cnt) {
   document.getElementById('mCount').textContent = cnt;
   document.getElementById('mQty').textContent = qty + ' g';
 
-  // FIX: Rate ko localStorage se restore karo
+  // Rate ko localStorage se restore karo
   var rateEl = document.getElementById('mMealCostRate');
   if (rateEl && !rateEl.value) {
     var savedRate = localStorage.getItem('g_mdm_rate');
     if (savedRate) rateEl.value = savedRate;
   }
   var rate = rateEl ? (parseFloat(rateEl.value) || 0) : 0;
-  var mealCost = (day === 0 || day === 6) ? 0 : cnt * rate;
+  var mealCost = isOff ? 0 : cnt * rate;
   var grand = mealCost + fruitCost;
   document.getElementById('mMealCost').textContent = mealCost.toFixed(2);
   document.getElementById('mTotal').textContent = '₹' + grand.toFixed(2);
@@ -1942,12 +1955,12 @@ function _buildMiddayData(dt, day, cnt) {
   var rate = rateEl ? (parseFloat(rateEl.value) || 0) : 0;
   var mealType;
   if (day === 0) mealType = 'रविवार — अवकाश';
-  else if (day === 6) mealType = 'शनिवार — अवकाश';
   else if (day === 1 || day === 4) mealType = 'गेहूं (Wheat)';
   else mealType = 'चावल (Rice)';
-  var qty = (day === 0 || day === 6) ? 0 : cnt * 100;
+  var isOff = (day === 0);
+  var qty = isOff ? 0 : cnt * 100;
   var fruitCost = (day === 1 && cnt > 0) ? cnt * 4 : 0;
-  var mealCost = (day === 0 || day === 6) ? 0 : cnt * rate;
+  var mealCost = isOff ? 0 : cnt * rate;
   var grand = mealCost + fruitCost;
   return {date: dt, count: cnt, mealType: mealType, quantity: qty, fruitCost: fruitCost, mealCost: mealCost, mealCostRate: rate, total: grand};
 }
@@ -1955,14 +1968,16 @@ function saveMidday() {
   if (currentUserRole !== 'admin') { toast('⛔ Only Admin!', 0); return; }
   var dtEl = document.getElementById('mDate');
   if (!dtEl || !dtEl.value) { toast('तारीख चुनें', 0); return; }
-  if (isHolidayDate(dtEl.value)) { toast('🏖️ छुट्टी वाले दिन नहीं!', 0); return; }
+  var dt = dtEl.value;
+  if (isHolidayDate(dt)) { toast('🏖️ छुट्टी वाले दिन नहीं!', 0); return; }
+  var day = new Date(dt + 'T12:00:00').getDay();
+  if (day === 0) { toast('🚫 रविवार को MDM नहीं होता!', 0); return; }
   var rateEl = document.getElementById('mMealCostRate');
   if (!rateEl || !rateEl.value || parseFloat(rateEl.value) <= 0) { toast('⚠️ Rate डालें!', 0); return; }
-  // FIX: Rate ko save karo next time ke liye
+  // Rate ko save karo next time ke liye
   localStorage.setItem('g_mdm_rate', rateEl.value);
   var data = calcMidday();
   if (!data || !data.date) { toast('कोई उपस्थिति नहीं', 0); return; }
-  // FIX: count 0 hone par save mat karo
   if (data.count === 0) { toast('⚠️ उस दिन कोई उपस्थिति नहीं — पहले उपस्थिति भरें!', 0); return; }
   var m = (D.g('midday', []) || []).filter(function(x) { return x.date !== data.date; });
   data.id = Date.now();
@@ -2018,13 +2033,25 @@ function renderMiddayMonth() {
         '<td class="px-3 py-2 text-right font-bold text-xs">—</td>' +
         '<td class="px-3 py-2 text-center text-xs">—</td></tr>';
     } else {
-      total += row.total || 0;
+      // Recalculate total correctly from stored rate (fixes old garbage records)
+      var storedRate = row.mealCostRate || 0;
+      var rowDay = new Date(row.date + 'T12:00:00').getDay();
+      var validMeal = (rowDay !== 0) && !isHolidayDate(row.date);
+      var recalcMeal = validMeal ? (row.count || 0) * storedRate : 0;
+      var recalcFruit = (rowDay === 1 && row.count > 0) ? row.count * 4 : 0;
+      var recalcTotal = recalcMeal + recalcFruit;
+      // If stored total seems wrong (0 but count>0 and rate>0), use recalc
+      var displayTotal = (row.total > 0) ? row.total : recalcTotal;
+      total += displayTotal;
       var db = currentUserRole === 'admin' ? '<button onclick="delMidday(' + row.id + ')" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>' : '—';
+      // Badge for Sunday records saved by mistake
+      var mealLabel = row.mealType || '—';
+      if (rowDay === 0) mealLabel = '<span class="text-red-400 text-[10px]">रविवार ⚠️</span>';
       return '<tr class="border-b border-gray-50 hover:bg-gray-50">' +
         '<td class="px-3 py-2 text-xs">' + fmtDateIN(row.date, {noYear:true}) + '</td>' +
-        '<td class="px-3 py-2 text-center text-xs">' + row.count + '</td>' +
-        '<td class="px-3 py-2 text-center text-xs">' + (row.mealType || '—') + '</td>' +
-        '<td class="px-3 py-2 text-right font-bold text-xs">₹' + (row.total || 0).toFixed(2) + '</td>' +
+        '<td class="px-3 py-2 text-center text-xs font-bold text-blue-700">' + (row.count || 0) + '</td>' +
+        '<td class="px-3 py-2 text-center text-xs">' + mealLabel + '</td>' +
+        '<td class="px-3 py-2 text-right font-bold text-xs text-teal-700">₹' + displayTotal.toFixed(2) + '</td>' +
         '<td class="px-3 py-2 text-center">' + db + '</td></tr>';
     }
   }).join('');
@@ -2050,9 +2077,9 @@ function calculateMonthlyGrain() {
   filtered.forEach(function(row) {
     if (row.quantity && row.quantity > 0 && row.count > 0) {
       var day = new Date(row.date + 'T12:00:00').getDay();
-      // Sunday=0, Saturday=6 skip karo
-      if (day === 0 || day === 6) return;
-      // Monday=1, Thursday=4 = Wheat; Tuesday=2, Wednesday=3, Friday=5 = Rice
+      // Only Sunday=0 skip karo — Saturday=6 is a school day (Rice)
+      if (day === 0) return;
+      // Mon=1, Thu=4 → Wheat; Tue=2, Wed=3, Fri=5, Sat=6 → Rice
       if (day === 1 || day === 4) wg += row.quantity;
       else rg += row.quantity;
       wd++;
