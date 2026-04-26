@@ -206,7 +206,7 @@ button, a, label { min-height: 36px; }
         <div class="absolute inset-2 rounded-full border-2 border-white/30"></div>
       </div>
       <h1 class="text-3xl font-bold text-white tracking-wide mb-2 drop-shadow-lg">P.S. Gauri Bidoor</h1>
-      <p class="text-teal-200/90 text-sm mt-2 tracking-widest uppercase font-medium">🎓 प्रबंधन प्रणाली v7.6</p>
+      <p class="text-teal-200/90 text-sm mt-2 tracking-widest uppercase font-medium">🎓 प्रबंधन प्रणाली v7.7</p>
     </div>
     <div class="glass rounded-3xl p-8 shadow-2xl">
       <div class="space-y-5">
@@ -500,7 +500,7 @@ button, a, label { min-height: 36px; }
             <div class="space-y-3">
               <div>
                 <label class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">तारीख</label>
-                <input id="mDate" type="date" onchange="calcMidday()" class="border border-gray-200 rounded-xl px-4 py-2.5 text-sm w-full shadow-sm">
+                <input id="mDate" type="date" onchange="onMiddayDateChange()" class="border border-gray-200 rounded-xl px-4 py-2.5 text-sm w-full shadow-sm">
               </div>
               <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
                 <p class="text-[11px] text-gray-500">भोजन प्रकार:</p>
@@ -548,7 +548,7 @@ button, a, label { min-height: 36px; }
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 card-enter">
               <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <h3 class="font-bold text-sm text-gray-800">📅 मासिक — <span id="mMonthName">—</span></h3>
-                <input type="month" id="mMonthPicker" onchange="renderMiddayMonth();calculateMonthlyGrain();" class="border border-gray-200 rounded-lg px-2 py-1 text-xs shadow-sm">
+                <input type="month" id="mMonthPicker" onchange="renderMiddayMonth();calculateMonthlyGrain();calcMidday();" class="border border-gray-200 rounded-lg px-2 py-1 text-xs shadow-sm">
               </div>
               <div class="mb-3">
                 <label class="flex items-center gap-2 text-[11px] text-amber-700 font-semibold cursor-pointer select-none">
@@ -704,7 +704,7 @@ button, a, label { min-height: 36px; }
               </div>
               <div>
                 <label class="text-[10px] font-semibold text-gray-400 uppercase block mb-1.5">वर्ष</label>
-                <select id="rpY" onchange="dR()" class="border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white shadow-sm" id="rpY"></select>
+                <select id="rpY" onchange="dR()" class="border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white shadow-sm"></select>
               </div>
               <div>
                 <label class="text-[10px] font-semibold text-gray-400 uppercase block mb-1.5">कक्षा</label>
@@ -1023,6 +1023,11 @@ function startRealtimeListeners() {
         D.s('att_' + dateKey, val[dateKey]);
       });
       refreshCurrentTab();
+      // FIX: Midday tab pe bhi count update karo agar midday active hai
+      var activeTab = document.querySelector('.sl.active');
+      if (activeTab && activeTab.getAttribute('data-t') === 'midday') {
+        calcMidday();
+      }
     }
   };
   fbDB.ref(attPath).on('value', attHandler, function(err) {
@@ -1803,7 +1808,47 @@ function deleteA() {
 }
 
 // ===== MID-DAY MEAL =====
-function initMidday() { calcMidday(); renderMiddayMonth(); calculateMonthlyGrain(); }
+function initMidday() {
+  // FIX: Midday tab open hone par selected date ki attendance Firebase se refresh karo
+  var dtEl = document.getElementById('mDate');
+  if (dtEl && dtEl.value && fbDB && fbConnected) {
+    var dt = dtEl.value;
+    fbDB.ref('data/attendance/' + dt).once('value').then(function(snap) {
+      var fbAtt = snap.val();
+      if (fbAtt && Array.isArray(fbAtt)) {
+        D.s('att_' + dt, fbAtt);
+      }
+      calcMidday();
+      renderMiddayMonth();
+      calculateMonthlyGrain();
+    }).catch(function() {
+      calcMidday();
+      renderMiddayMonth();
+      calculateMonthlyGrain();
+    });
+  } else {
+    calcMidday();
+    renderMiddayMonth();
+    calculateMonthlyGrain();
+  }
+}
+// FIX: Midday date change hone par Firebase se attendance fresh pull karo
+function onMiddayDateChange() {
+  var dtEl = document.getElementById('mDate');
+  if (!dtEl || !dtEl.value) { calcMidday(); return; }
+  var dt = dtEl.value;
+  if (fbDB && fbConnected) {
+    fbDB.ref('data/attendance/' + dt).once('value').then(function(snap) {
+      var fbAtt = snap.val();
+      if (fbAtt && Array.isArray(fbAtt)) {
+        D.s('att_' + dt, fbAtt);
+      }
+      calcMidday();
+    }).catch(function() { calcMidday(); });
+  } else {
+    calcMidday();
+  }
+}
 function calcMidday() {
   var dtEl = document.getElementById('mDate');
   if (!dtEl || !dtEl.value) return null;
@@ -1829,7 +1874,35 @@ function calcMidday() {
   var day = new Date(dt + 'T12:00:00').getDay();
   var att = D.g('att_' + dt, []) || [];
   var cnt = att.filter(function(a) { return a.st === 'present'; }).length;
-  var mealType = day === 0 ? 'रविवार — अवकाश' : (day === 1 || day === 4) ? 'गेहूं (Wheat)' : 'चावल (Rice)';
+
+  // FIX: Agar Firebase connected hai aur local count 0 hai, Firebase se fetch karo
+  if (cnt === 0 && fbDB && fbConnected) {
+    var _dt = dt;
+    fbDB.ref('data/attendance/' + _dt).once('value').then(function(snap) {
+      var fbAtt = snap.val();
+      if (fbAtt && Array.isArray(fbAtt) && fbAtt.length > 0) {
+        D.s('att_' + _dt, fbAtt);
+        // Re-render only UI elements, not recursive call
+        var freshCnt = fbAtt.filter(function(a) { return a.st === 'present'; }).length;
+        var freshQty = freshCnt * 100;
+        var rateElFresh = document.getElementById('mMealCostRate');
+        var rateFresh = rateElFresh ? (parseFloat(rateElFresh.value) || 0) : 0;
+        var mealCostFresh = freshCnt * rateFresh;
+        var fruitCostFresh = (day === 1 && freshCnt > 0) ? freshCnt * 4 : 0;
+        document.getElementById('mCount').textContent = freshCnt;
+        document.getElementById('mQty').textContent = freshQty + ' g';
+        document.getElementById('mMealCost').textContent = mealCostFresh.toFixed(2);
+        document.getElementById('mTotal').textContent = '₹' + (mealCostFresh + fruitCostFresh).toFixed(2);
+        if (day === 1 && freshCnt > 0) {
+          var fruitBoxEl = document.getElementById('mFruitBox');
+          if (fruitBoxEl) fruitBoxEl.classList.remove('hidden');
+          document.getElementById('mFruitCost').textContent = fruitCostFresh;
+        }
+      }
+    }).catch(function() {});
+  }
+
+  var mealType = day === 0 ? 'रविवार — अवकाश' : (day === 6 ? 'शनिवार — अवकाश' : (day === 1 || day === 4) ? 'गेहूं (Wheat)' : 'चावल (Rice)');
   var qty = cnt * 100;
   var fruitCost = 0;
   var fruitBox = document.getElementById('mFruitBox');
@@ -1860,6 +1933,8 @@ function saveMidday() {
   if (!rateEl || !rateEl.value) { toast('⚠️ Rate डालें!', 0); return; }
   var data = calcMidday();
   if (!data || !data.date) { toast('कोई उपस्थिति नहीं', 0); return; }
+  // FIX: count 0 hone par save mat karo
+  if (data.count === 0) { toast('⚠️ उस दिन कोई उपस्थिति नहीं — पहले उपस्थिति भरें!', 0); return; }
   var m = (D.g('midday', []) || []).filter(function(x) { return x.date !== data.date; });
   data.id = Date.now();
   m.push(data);
@@ -2201,7 +2276,7 @@ function expData() {
     pass: D.g('pass', 'gauri'),
     viewer_pass: D.g('viewer_pass', 'viewer'),
     exported: new Date().toISOString(),
-    version: '7.6',
+    version: '7.7',
     attendance: {}
   };
   for (var k in localStorage) {
@@ -2212,7 +2287,7 @@ function expData() {
   var blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'ps_gauri_v76_' + todayStr() + '.json';
+  a.download = 'ps_gauri_v77_' + todayStr() + '.json';
   a.click();
   setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
   toast('✅ Export हो गया!');
