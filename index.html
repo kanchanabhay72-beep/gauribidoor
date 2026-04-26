@@ -732,6 +732,7 @@ button, a, label { min-height: 36px; }
                 <th class="text-center px-4 py-3 text-[10px] font-semibold text-gray-400 uppercase">उपस्थित</th>
                 <th class="text-center px-4 py-3 text-[10px] font-semibold text-gray-400 uppercase">अनुपस्थित</th>
                 <th class="text-center px-4 py-3 text-[10px] font-semibold text-gray-400 uppercase">%</th>
+                <th class="text-center px-4 py-3 text-[10px] font-semibold text-gray-400 uppercase">MDM</th>
               </tr></thead>
               <tbody id="rpTb"></tbody>
             </table>
@@ -1893,7 +1894,10 @@ function calcMidday() {
   if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = '1'; }
   var day = new Date(dt + 'T12:00:00').getDay();
   var att = D.g('att_' + dt, []) || [];
-  var cnt = att.filter(function(a) { return a.st === 'present'; }).length;
+  // FIX: Report wala exact logic — sirf active students count karo (IDs se match)
+  var activeStudents = D.g('students', []) || [];
+  var activeIds = activeStudents.filter(function(s){ return s.st === 'active'; }).map(function(s){ return s.id; });
+  var cnt = att.filter(function(a) { return a.st === 'present' && activeIds.indexOf(a.sid) !== -1; }).length;
   _renderMiddayCalc(dt, day, cnt);
   return _buildMiddayData(dt, day, cnt);
 }
@@ -2233,6 +2237,20 @@ function toggleTeacherAtt(tid) {
   renderTeachers();
 }
 
+// ===== REPORT → MDM direct link =====
+function goMDMFromReport(date, presentCount) {
+  // MDM tab pe jao aur date set karo
+  go('midday');
+  setTimeout(function() {
+    var mDateEl = document.getElementById('mDate');
+    if (mDateEl) {
+      mDateEl.value = date;
+      onMiddayDateChange();
+    }
+    toast('📋 ' + fmtDateIN(date) + ' — ' + presentCount + ' बच्चे उपस्थित थे। Rate डालकर सेव करें।');
+  }, 150);
+}
+
 // ===== REPORT (FIX: year selector + reads localStorage which is synced from Firebase) =====
 function dR() {
   var miEl = document.getElementById('rpM');
@@ -2283,12 +2301,17 @@ function dR() {
   em.classList.add('hidden');
   tb.innerHTML = rows.map(function(r) {
     var c = r.pct >= 75 ? 'text-emerald-600 bg-emerald-50' : r.pct >= 50 ? 'text-amber-600 bg-amber-50' : 'text-red-600 bg-red-50';
+    var mdmExists = (D.g('midday', []) || []).find(function(m){ return m.date === r.date; });
+    var mdmBtn = mdmExists
+      ? '<span class="text-[10px] bg-teal-100 text-teal-700 font-bold px-2 py-0.5 rounded-full">✓ सेव</span>'
+      : '<button onclick="goMDMFromReport(\'' + r.date + '\',' + r.p + ')" class="bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold px-2 py-1 rounded-lg text-[10px] transition-all whitespace-nowrap">📋 MDM भरें</button>';
     return '<tr class="tr border-b border-gray-50 hover:bg-gray-50">' +
       '<td class="px-4 py-3 text-xs">' + fmtDateIN(r.date) + '</td>' +
       '<td class="px-4 py-3 text-center text-xs">' + r.total + '</td>' +
       '<td class="px-4 py-3 text-center text-emerald-600 font-bold text-xs">' + r.p + '</td>' +
       '<td class="px-4 py-3 text-center text-rose-600 font-bold text-xs">' + r.a + '</td>' +
-      '<td class="px-4 py-3 text-center"><span class="px-2 py-0.5 rounded-lg text-[11px] font-bold ' + c + '">' + r.pct + '%</span></td></tr>';
+      '<td class="px-4 py-3 text-center"><span class="px-2 py-0.5 rounded-lg text-[11px] font-bold ' + c + '">' + r.pct + '%</span></td>' +
+      '<td class="px-4 py-3 text-center">' + mdmBtn + '</td></tr>';
   }).join('');
 }
 
