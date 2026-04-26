@@ -500,7 +500,10 @@ button, a, label { min-height: 36px; }
             <div class="space-y-3">
               <div>
                 <label class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">तारीख</label>
-                <input id="mDate" type="date" onchange="onMiddayDateChange()" class="border border-gray-200 rounded-xl px-4 py-2.5 text-sm w-full shadow-sm">
+                <div class="flex gap-2">
+                  <input id="mDate" type="date" onchange="onMiddayDateChange()" class="border border-gray-200 rounded-xl px-4 py-2.5 text-sm flex-1 shadow-sm">
+                  <button onclick="onMiddayDateChange()" title="उपस्थिति ताज़ा करें" class="bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-700 px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1 transition-all"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i></button>
+                </div>
               </div>
               <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
                 <p class="text-[11px] text-gray-500">भोजन प्रकार:</p>
@@ -519,7 +522,7 @@ button, a, label { min-height: 36px; }
               <div class="p-3 bg-amber-50 rounded-xl border border-amber-200">
                 <p class="text-[11px] text-amber-600">💰 भोजन लागत ₹/बच्चा:</p>
                 <div class="flex items-center gap-2 mt-1">
-                  <input id="mMealCostRate" type="number" min="0" step="0.5" placeholder="Rate" class="border border-amber-300 rounded-lg px-3 py-1.5 text-lg font-bold text-amber-800 w-24 text-center bg-white shadow-sm" oninput="calcMidday()">
+                  <input id="mMealCostRate" type="number" min="0" step="0.5" placeholder="Rate" class="border border-amber-300 rounded-lg px-3 py-1.5 text-lg font-bold text-amber-800 w-24 text-center bg-white shadow-sm" oninput="localStorage.setItem('g_mdm_rate',this.value);calcMidday()">
                   <span class="text-sm text-gray-500">₹/बच्चा</span>
                 </div>
               </div>
@@ -1757,6 +1760,11 @@ function autoSaveAttendance() {
   showAutosave('Class ' + clsEl.value + ': ' + p + 'P / ' + ab + 'A ✓');
   // FIX: Now uses correct path via updated fbPush
   fbPush('att_' + dt, final);
+  // FIX: Attendance change hone par MDM tab bhi refresh karo
+  var mDateEl = document.getElementById('mDate');
+  if (mDateEl && mDateEl.value === dt) {
+    calcMidday();
+  }
 }
 
 function saveA() {
@@ -1781,6 +1789,9 @@ function saveA() {
   var p = rec.filter(function(r) { return r.st === 'present'; }).length;
   toast('✅ Class ' + cls + ': ' + p + '/' + rec.length + ' Present');
   fbPush('att_' + dt, final);
+  // FIX: Attendance save hone par MDM bhi update karo
+  var mDateEl2 = document.getElementById('mDate');
+  if (mDateEl2 && mDateEl2.value === dt) { calcMidday(); }
   dA2();
 }
 
@@ -1804,18 +1815,26 @@ function deleteA() {
     fbPush('att_' + dt, null);
   }
   toast('हटाया गया');
+  // FIX: Attendance delete hone par MDM bhi refresh karo
+  var mDateEl3 = document.getElementById('mDate');
+  if (mDateEl3 && mDateEl3.value === dt) { calcMidday(); }
   dA2();
 }
 
 // ===== MID-DAY MEAL =====
 function initMidday() {
-  // FIX: Midday tab open hone par selected date ki attendance Firebase se refresh karo
+  // FIX: Rate restore karo
+  var rateEl = document.getElementById('mMealCostRate');
+  if (rateEl && !rateEl.value) {
+    var savedRate = localStorage.getItem('g_mdm_rate');
+    if (savedRate) rateEl.value = savedRate;
+  }
   var dtEl = document.getElementById('mDate');
   if (dtEl && dtEl.value && fbDB && fbConnected) {
     var dt = dtEl.value;
     fbDB.ref('data/attendance/' + dt).once('value').then(function(snap) {
       var fbAtt = snap.val();
-      if (fbAtt && Array.isArray(fbAtt)) {
+      if (fbAtt && Array.isArray(fbAtt) && fbAtt.length > 0) {
         D.s('att_' + dt, fbAtt);
       }
       calcMidday();
@@ -1840,7 +1859,7 @@ function onMiddayDateChange() {
   if (fbDB && fbConnected) {
     fbDB.ref('data/attendance/' + dt).once('value').then(function(snap) {
       var fbAtt = snap.val();
-      if (fbAtt && Array.isArray(fbAtt)) {
+      if (fbAtt && Array.isArray(fbAtt) && fbAtt.length > 0) {
         D.s('att_' + dt, fbAtt);
       }
       calcMidday();
@@ -1864,9 +1883,10 @@ function calcMidday() {
     document.getElementById('mMealType').textContent = '🏖️ छुट्टी';
     document.getElementById('mCount').textContent = '0';
     document.getElementById('mQty').textContent = '0 g';
-    document.getElementById('mMealCost').textContent = '0';
-    document.getElementById('mFruitBox').classList.add('hidden');
-    document.getElementById('mTotal').textContent = '₹0';
+    document.getElementById('mMealCost').textContent = '0.00';
+    var fruitBoxH = document.getElementById('mFruitBox');
+    if (fruitBoxH) fruitBoxH.classList.add('hidden');
+    document.getElementById('mTotal').textContent = '₹0.00';
     return null;
   }
   if (hNotice) hNotice.classList.add('hidden');
@@ -1874,36 +1894,19 @@ function calcMidday() {
   var day = new Date(dt + 'T12:00:00').getDay();
   var att = D.g('att_' + dt, []) || [];
   var cnt = att.filter(function(a) { return a.st === 'present'; }).length;
+  _renderMiddayCalc(dt, day, cnt);
+  return _buildMiddayData(dt, day, cnt);
+}
 
-  // FIX: Agar Firebase connected hai aur local count 0 hai, Firebase se fetch karo
-  if (cnt === 0 && fbDB && fbConnected) {
-    var _dt = dt;
-    fbDB.ref('data/attendance/' + _dt).once('value').then(function(snap) {
-      var fbAtt = snap.val();
-      if (fbAtt && Array.isArray(fbAtt) && fbAtt.length > 0) {
-        D.s('att_' + _dt, fbAtt);
-        // Re-render only UI elements, not recursive call
-        var freshCnt = fbAtt.filter(function(a) { return a.st === 'present'; }).length;
-        var freshQty = freshCnt * 100;
-        var rateElFresh = document.getElementById('mMealCostRate');
-        var rateFresh = rateElFresh ? (parseFloat(rateElFresh.value) || 0) : 0;
-        var mealCostFresh = freshCnt * rateFresh;
-        var fruitCostFresh = (day === 1 && freshCnt > 0) ? freshCnt * 4 : 0;
-        document.getElementById('mCount').textContent = freshCnt;
-        document.getElementById('mQty').textContent = freshQty + ' g';
-        document.getElementById('mMealCost').textContent = mealCostFresh.toFixed(2);
-        document.getElementById('mTotal').textContent = '₹' + (mealCostFresh + fruitCostFresh).toFixed(2);
-        if (day === 1 && freshCnt > 0) {
-          var fruitBoxEl = document.getElementById('mFruitBox');
-          if (fruitBoxEl) fruitBoxEl.classList.remove('hidden');
-          document.getElementById('mFruitCost').textContent = fruitCostFresh;
-        }
-      }
-    }).catch(function() {});
-  }
+function _renderMiddayCalc(dt, day, cnt) {
+  // Sunday=0, Saturday=6 — no meal
+  var mealType;
+  if (day === 0) mealType = 'रविवार — अवकाश';
+  else if (day === 6) mealType = 'शनिवार — अवकाश';
+  else if (day === 1 || day === 4) mealType = 'गेहूं (Wheat)';
+  else mealType = 'चावल (Rice)';
 
-  var mealType = day === 0 ? 'रविवार — अवकाश' : (day === 6 ? 'शनिवार — अवकाश' : (day === 1 || day === 4) ? 'गेहूं (Wheat)' : 'चावल (Rice)');
-  var qty = cnt * 100;
+  var qty = (day === 0 || day === 6) ? 0 : cnt * 100;
   var fruitCost = 0;
   var fruitBox = document.getElementById('mFruitBox');
   if (day === 1 && cnt > 0) {
@@ -1916,12 +1919,32 @@ function calcMidday() {
   document.getElementById('mMealType').textContent = mealType;
   document.getElementById('mCount').textContent = cnt;
   document.getElementById('mQty').textContent = qty + ' g';
+
+  // FIX: Rate ko localStorage se restore karo
+  var rateEl = document.getElementById('mMealCostRate');
+  if (rateEl && !rateEl.value) {
+    var savedRate = localStorage.getItem('g_mdm_rate');
+    if (savedRate) rateEl.value = savedRate;
+  }
+  var rate = rateEl ? (parseFloat(rateEl.value) || 0) : 0;
+  var mealCost = (day === 0 || day === 6) ? 0 : cnt * rate;
+  var grand = mealCost + fruitCost;
+  document.getElementById('mMealCost').textContent = mealCost.toFixed(2);
+  document.getElementById('mTotal').textContent = '₹' + grand.toFixed(2);
+}
+
+function _buildMiddayData(dt, day, cnt) {
   var rateEl = document.getElementById('mMealCostRate');
   var rate = rateEl ? (parseFloat(rateEl.value) || 0) : 0;
-  var mealCost = cnt * rate;
-  document.getElementById('mMealCost').textContent = mealCost.toFixed(2);
+  var mealType;
+  if (day === 0) mealType = 'रविवार — अवकाश';
+  else if (day === 6) mealType = 'शनिवार — अवकाश';
+  else if (day === 1 || day === 4) mealType = 'गेहूं (Wheat)';
+  else mealType = 'चावल (Rice)';
+  var qty = (day === 0 || day === 6) ? 0 : cnt * 100;
+  var fruitCost = (day === 1 && cnt > 0) ? cnt * 4 : 0;
+  var mealCost = (day === 0 || day === 6) ? 0 : cnt * rate;
   var grand = mealCost + fruitCost;
-  document.getElementById('mTotal').textContent = '₹' + grand.toFixed(2);
   return {date: dt, count: cnt, mealType: mealType, quantity: qty, fruitCost: fruitCost, mealCost: mealCost, mealCostRate: rate, total: grand};
 }
 function saveMidday() {
@@ -1930,7 +1953,9 @@ function saveMidday() {
   if (!dtEl || !dtEl.value) { toast('तारीख चुनें', 0); return; }
   if (isHolidayDate(dtEl.value)) { toast('🏖️ छुट्टी वाले दिन नहीं!', 0); return; }
   var rateEl = document.getElementById('mMealCostRate');
-  if (!rateEl || !rateEl.value) { toast('⚠️ Rate डालें!', 0); return; }
+  if (!rateEl || !rateEl.value || parseFloat(rateEl.value) <= 0) { toast('⚠️ Rate डालें!', 0); return; }
+  // FIX: Rate ko save karo next time ke liye
+  localStorage.setItem('g_mdm_rate', rateEl.value);
   var data = calcMidday();
   if (!data || !data.date) { toast('कोई उपस्थिति नहीं', 0); return; }
   // FIX: count 0 hone par save mat karo
@@ -1941,7 +1966,7 @@ function saveMidday() {
   m.sort(function(a, b) { return b.date.localeCompare(a.date); });
   D.s('midday', m);
   fbPush('midday', m);
-  toast('✅ MDM सेव!');
+  toast('✅ MDM सेव! ' + data.count + ' बच्चे | ₹' + data.total.toFixed(2));
   renderMiddayMonth();
   calculateMonthlyGrain();
 }
@@ -2019,10 +2044,13 @@ function calculateMonthlyGrain() {
   var filtered = val ? m.filter(function(x) { return x.date.startsWith(val); }) : m;
   var wg = 0, rg = 0, wd = 0;
   filtered.forEach(function(row) {
-    if (row.quantity && row.count > 0) {
+    if (row.quantity && row.quantity > 0 && row.count > 0) {
       var day = new Date(row.date + 'T12:00:00').getDay();
+      // Sunday=0, Saturday=6 skip karo
+      if (day === 0 || day === 6) return;
+      // Monday=1, Thursday=4 = Wheat; Tuesday=2, Wednesday=3, Friday=5 = Rice
       if (day === 1 || day === 4) wg += row.quantity;
-      else if (day >= 2 && day <= 6) rg += row.quantity;
+      else rg += row.quantity;
       wd++;
     }
   });
