@@ -185,14 +185,16 @@ input:focus, select:focus, textarea:focus { outline:none; border-color:#14b8a6 !
 .mdm-holiday-row { background: linear-gradient(90deg, #fef9c3, #fefce8) !important; }
 .mdm-holiday-row td { color: #92400e !important; }
 
-.viewer-mode input[type="text"]:not([readonly]),
-.viewer-mode input[type="number"]:not([readonly]),
-.viewer-mode input[type="tel"]:not([readonly]),
-.viewer-mode input[type="email"]:not([readonly]),
-.viewer-mode input[type="date"]:not([readonly]),
-.viewer-mode input[type="password"]:not([readonly]),
-.viewer-mode textarea:not([readonly]),
-.viewer-mode select { pointer-events:none; opacity:.6; background:#f9fafb !important; }
+/* Viewer mode: block data-entry fields but allow navigation selectors/dates */
+.viewer-mode input[type="text"]:not([readonly]):not(.viewer-allow),
+.viewer-mode input[type="number"]:not([readonly]):not(.viewer-allow),
+.viewer-mode input[type="tel"]:not([readonly]):not(.viewer-allow),
+.viewer-mode input[type="email"]:not([readonly]):not(.viewer-allow),
+.viewer-mode input[type="password"]:not([readonly]):not(.viewer-allow),
+.viewer-mode textarea:not([readonly]):not(.viewer-allow) { pointer-events:none; opacity:.6; background:#f9fafb !important; }
+/* Selects blocked except viewer-allow class */
+.viewer-mode select:not(.viewer-allow) { pointer-events:none; opacity:.6; background:#f9fafb !important; }
+/* Date inputs: fully interactive for viewer (saves are blocked by JS role checks) */
 
 ::-webkit-scrollbar { width:4px; height:4px; }
 ::-webkit-scrollbar-track { background:transparent; }
@@ -420,7 +422,7 @@ button, a, label { min-height: 36px; }
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 card-enter" style="animation-delay:.25s">
           <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
             <h3 class="font-bold text-sm text-gray-800">📊 मासिक उपस्थिति — <span id="dashMonthName"></span></h3>
-            <select id="dashMonthSelect" onchange="updateDashMonthlyAtt()" class="border border-gray-200 rounded-lg px-2 py-1 text-xs bg-white"></select>
+            <select id="dashMonthSelect" onchange="updateDashMonthlyAtt()" class="viewer-allow border border-gray-200 rounded-lg px-2 py-1 text-xs bg-white"></select>
           </div>
           <div id="dashMonthlyAttContent" class="text-sm text-gray-400 text-center py-4">Loading...</div>
         </div>
@@ -445,7 +447,7 @@ button, a, label { min-height: 36px; }
               <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-300"></i>
               <input id="sQ" oninput="dS2()" placeholder="नाम या मोबाइल..." class="border border-gray-200 rounded-xl pl-9 pr-3 py-2.5 text-sm w-full bg-white shadow-sm">
             </div>
-            <select id="sF" onchange="dS2()" class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white shadow-sm shrink-0">
+            <select id="sF" onchange="dS2()" class="viewer-allow border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white shadow-sm shrink-0">
               <option value="">सभी</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
             </select>
           </div>
@@ -485,7 +487,7 @@ button, a, label { min-height: 36px; }
           <div class="flex flex-wrap gap-3 items-end">
             <div>
               <label class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider block mb-1.5">कक्षा</label>
-              <select id="aC" onchange="dA2()" class="border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white shadow-sm">
+              <select id="aC" onchange="dA2()" class="viewer-allow border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white shadow-sm">
                 <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
               </select>
             </div>
@@ -794,7 +796,7 @@ button, a, label { min-height: 36px; }
             <div class="flex flex-wrap gap-3">
               <div>
                 <label class="text-[10px] font-semibold text-gray-400 uppercase block mb-1.5">महीना</label>
-                <select id="rpM" onchange="dR()" class="border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white shadow-sm">
+                <select id="rpM" onchange="dR()" class="viewer-allow border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white shadow-sm">
                   <option value="0">जनवरी</option><option value="1">फरवरी</option><option value="2">मार्च</option>
                   <option value="3">अप्रैल</option><option value="4">मई</option><option value="5">जून</option>
                   <option value="6">जुलाई</option><option value="7">अगस्त</option><option value="8">सितंबर</option>
@@ -803,11 +805,11 @@ button, a, label { min-height: 36px; }
               </div>
               <div>
                 <label class="text-[10px] font-semibold text-gray-400 uppercase block mb-1.5">वर्ष</label>
-                <select id="rpY" onchange="dR()" class="border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white shadow-sm"></select>
+                <select id="rpY" onchange="dR()" class="viewer-allow border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white shadow-sm"></select>
               </div>
               <div>
                 <label class="text-[10px] font-semibold text-gray-400 uppercase block mb-1.5">कक्षा</label>
-                <select id="rpC" onchange="dR()" class="border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white shadow-sm">
+                <select id="rpC" onchange="dR()" class="viewer-allow border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white shadow-sm">
                   <option value="">सभी</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
                 </select>
               </div>
@@ -2226,8 +2228,8 @@ function calculateMonthlyGrain() {
   filtered.forEach(function(row) {
     if (row.quantity && row.quantity > 0 && row.count > 0) {
       var day = new Date(row.date + 'T12:00:00').getDay();
-      // Only Sunday=0 skip karo — Saturday=6 is a school day (Rice)
-      if (day === 0) return;
+      // Skip Sunday and holidays
+      if (day === 0 || isHolidayDate(row.date)) return;
       // Mon=1, Thu=4 → Wheat; Tue=2, Wed=3, Fri=5, Sat=6 → Rice
       if (day === 1 || day === 4) wg += row.quantity;
       else rg += row.quantity;
@@ -2249,15 +2251,20 @@ function calculateDateRange() {
   var from = fromEl.value, to = toEl.value;
   if (!from || !to) { if (res) res.classList.add('hidden'); return; }
   if (from > to) { toast('From date पहले होनी चाहिए', 0); return; }
-  var filtered = (D.g('midday', []) || []).filter(function(x) { return x.date >= from && x.date <= to; });
-  if (!filtered.length) { if (res) res.classList.add('hidden'); toast('इस range में कोई डेटा नहीं', 0); return; }
+  // FIX: Only include valid MDM records (count>0, not Sunday, not holiday)
+  var allFiltered = (D.g('midday', []) || []).filter(function(x) { return x.date >= from && x.date <= to; });
+  var filtered = allFiltered.filter(function(r) {
+    var day = new Date(r.date + 'T12:00:00').getDay();
+    return day !== 0 && !isHolidayDate(r.date) && (r.count || 0) > 0;
+  });
+  if (!filtered.length) { if (res) res.classList.add('hidden'); toast('इस range में कोई valid MDM डेटा नहीं', 0); return; }
   if (res) res.classList.remove('hidden');
   var ts = 0, tg = 0, tc = 0, wg = 0, rg = 0, mc = 0, fc = 0;
   filtered.forEach(function(r) {
     ts += r.count; tg += r.quantity || 0; tc += r.total || 0; mc += r.mealCost || 0; fc += r.fruitCost || 0;
     var day = new Date(r.date + 'T12:00:00').getDay();
     if (day === 1 || day === 4) wg += r.quantity || 0;
-    else if (day >= 2 && day <= 6) rg += r.quantity || 0;
+    else rg += r.quantity || 0;
   });
   document.getElementById('rangeTotalDays').textContent = filtered.length;
   document.getElementById('rangeTotalStudents').textContent = ts;
