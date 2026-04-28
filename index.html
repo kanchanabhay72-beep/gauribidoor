@@ -681,7 +681,7 @@ button, a, label { min-height: 36px; }
                 <div class="p-3 bg-yellow-50 rounded-xl border border-yellow-200 text-center"><span class="text-xl">🌾</span><p class="text-[10px] text-yellow-600 font-semibold mt-1">गेहूं</p><p class="text-xl font-black text-yellow-800" id="grainWheatTotal">0 kg</p></div>
                 <div class="p-3 bg-white border border-gray-200 text-center rounded-xl"><span class="text-xl">🍚</span><p class="text-[10px] text-gray-600 font-semibold mt-1">चावल</p><p class="text-xl font-black text-gray-800" id="grainRiceTotal">0 kg</p></div>
                 <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-center"><span class="text-xl">⚖️</span><p class="text-[10px] text-amber-600 font-semibold mt-1">कुल अनाज</p><p class="text-xl font-black text-amber-800" id="grainGrandTotal">0 kg</p></div>
-                <div class="p-3 bg-teal-50 rounded-xl border border-teal-200 text-center"><span class="text-xl">📊</span><p class="text-[10px] text-teal-600 font-semibold mt-1">दिन</p><p class="text-xl font-black text-teal-800" id="grainDaysCount">0</p></div>
+                <div class="p-3 bg-teal-50 rounded-xl border border-teal-200 text-center"><span class="text-xl">📊</span><p class="text-[10px] text-teal-600 font-semibold mt-1">MDM दिन</p><p class="text-xl font-black text-teal-800" id="grainDaysCount">0</p></div>
               </div>
             </div>
 
@@ -1547,7 +1547,7 @@ function dDash() {
   document.getElementById('dT').textContent = (D.g('teachers', []) || []).length;
   var cwHtml = [1,2,3,4,5].map(function(c) {
     var n = ss.filter(function(s) { return s.cls == c; }).length;
-    return '<div class="text-center p-2 rounded-xl ' + (n ? 'bg-teal-50 border border-teal-100' : 'bg-gray-50 border border-gray-100') + '">' +
+    return '<div class="text-center p-2 rounded-xl cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md ' + (n ? 'bg-teal-50 border border-teal-100 hover:bg-teal-100' : 'bg-gray-50 border border-gray-100') + '" onclick="goToClassStudents(' + c + ')" title="Class ' + c + ' के छात्र देखें">' +
       '<p class="text-xl font-bold ' + (n ? 'text-teal-700' : 'text-gray-300') + '">' + n + '</p>' +
       '<p class="text-[10px] text-gray-500">Cl.' + c + '</p></div>';
   }).join('');
@@ -1596,6 +1596,14 @@ function dDash() {
 }
 
 // ===== STUDENTS =====
+function goToClassStudents(cls) {
+  go('students');
+  var sfEl = document.getElementById('sF');
+  if (sfEl) { sfEl.value = String(cls); }
+  var sqEl = document.getElementById('sQ');
+  if (sqEl) sqEl.value = '';
+  dS2();
+}
 function calcStudentMonthlyAttPct(studentId, targetMonth) {
   var total = 0, present = 0;
   for (var k in localStorage) {
@@ -1625,6 +1633,12 @@ function dS2() {
   var ss = D.g('students', []) || [];
   if (q) ss = ss.filter(function(s) { return s.name.toLowerCase().indexOf(q) !== -1 || (s.mobile||'').indexOf(q) !== -1; });
   if (cf) ss = ss.filter(function(s) { return s.cls == cf; });
+  // Sort: class 1→5, then alphabetically by name within each class
+  ss.sort(function(a, b) {
+    var ca = parseInt(a.cls) || 0, cb = parseInt(b.cls) || 0;
+    if (ca !== cb) return ca - cb;
+    return (a.name || '').localeCompare(b.name || '');
+  });
   var tb = document.getElementById('sTb');
   var em = document.getElementById('sEm');
   var ct = document.getElementById('sCount');
@@ -1648,7 +1662,7 @@ function dS2() {
       '<td class="px-4 py-3 text-gray-400 text-xs">' + (i + 1) + '</td>' +
       '<td class="px-4 py-3"><button onclick="viewStudent(' + s.id + ')" class="font-semibold text-gray-800 hover:text-teal-600 text-xs text-left">' + s.name + '</button><p class="text-[10px] text-gray-400">' + (s.gender === 'F' ? '♀' : '♂') + '</p></td>' +
       '<td class="px-4 py-3"><span class="bg-gray-100 px-2 py-0.5 rounded text-[11px]">Cl.' + s.cls + '</span></td>' +
-      '<td class="px-4 py-3 text-gray-500 text-xs hidden sm:table-cell">' + (s.mother_name || s.parent || '—') + '</td>' +
+      '<td class="px-4 py-3 text-gray-500 text-xs hidden sm:table-cell">' + (s.mother_name || '—') + '</td>' +
       '<td class="px-4 py-3 text-center">' + ab + '</td>' +
       '<td class="px-4 py-3">' + actions + '</td></tr>';
   }).join('');
@@ -1740,6 +1754,29 @@ function viewStudent(id) {
   var ab = getAttBadgeHTML(as.percent, as.hasData);
   var actions = currentUserRole === 'admin' ?
     '<div class="flex gap-2 mt-4"><button onclick="editS(' + s.id + ')" class="flex-1 bg-teal-50 text-teal-700 py-2 rounded-xl font-semibold text-sm">✏️ Edit</button><button onclick="delS(' + s.id + ')" class="flex-1 bg-red-50 text-red-600 py-2 rounded-xl font-semibold text-sm">🗑️ Delete</button></div>' : '';
+
+  // Build date-wise attendance log for current month
+  var attLog = '';
+  var attKeys = [];
+  for (var k in localStorage) {
+    if (k.startsWith('g_att_') && k.indexOf(cm) !== -1) attKeys.push(k);
+  }
+  attKeys.sort().reverse();
+  if (attKeys.length) {
+    attLog = '<div class="bg-gray-50 rounded-xl p-3 col-span-2"><p class="text-[10px] text-gray-400 uppercase font-bold mb-2">📅 तारीखवार उपस्थिति (' + MN[parseInt(cm.split('-')[1])-1] + ')</p><div class="flex flex-wrap gap-1.5">';
+    attKeys.forEach(function(key) {
+      var dt = key.replace('g_att_', '');
+      if (isHolidayDate(dt)) return;
+      var att = D.g('att_' + dt, []) || [];
+      var rec = att.find(function(a) { return a.sid === id; });
+      if (!rec) return;
+      var d = dt.split('-')[2];
+      var isP = rec.st === 'present';
+      attLog += '<span title="' + fmtDateIN(dt) + ': ' + (isP ? 'उपस्थित' : 'अनुपस्थित') + '" class="inline-flex items-center justify-center w-8 h-8 rounded-lg text-[11px] font-bold ' + (isP ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-red-100 text-red-600 border border-red-200') + '">' + parseInt(d) + '</span>';
+    });
+    attLog += '</div><p class="text-[9px] text-gray-400 mt-1.5">हरा = उपस्थित, लाल = अनुपस्थित</p></div>';
+  }
+
   openM('<div class="p-5">' +
     '<div class="flex justify-between items-start mb-4">' +
     '<div class="flex items-center gap-3">' +
@@ -1750,10 +1787,12 @@ function viewStudent(id) {
     '<div class="flex items-center justify-between mb-2"><h5 class="font-bold text-sm text-teal-800">मासिक उपस्थिति</h5>' + ab + '</div>' +
     (as.hasData ? '<div class="grid grid-cols-3 gap-2 mb-2"><div class="bg-white rounded-lg p-2 text-center"><p class="text-lg font-bold text-emerald-600">' + as.present + '</p><p class="text-[10px] text-gray-500">उपस्थित</p></div><div class="bg-white rounded-lg p-2 text-center"><p class="text-lg font-bold text-red-500">' + as.absent + '</p><p class="text-[10px] text-gray-500">अनुपस्थित</p></div><div class="bg-white rounded-lg p-2 text-center"><p class="text-lg font-bold text-teal-700">' + as.total + '</p><p class="text-[10px] text-gray-500">कुल</p></div></div><div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden"><div class="h-full rounded-full ' + (as.percent >= 75 ? 'bg-emerald-500' : as.percent >= 50 ? 'bg-amber-500' : 'bg-red-500') + '" style="width:' + as.percent + '%"></div></div>' : '<p class="text-sm text-center text-gray-400 py-2">कोई डेटा नहीं</p>') + '</div>' +
     '<div class="grid grid-cols-2 gap-3 text-xs">' +
-    '<div class="bg-gray-50 p-3 rounded-xl"><p class="text-[10px] text-gray-400 uppercase font-bold mb-1">व्यक्तिगत</p><p><span class="text-gray-500">DOB:</span> ' + (s.dob ? fmtDateIN(s.dob) : '—') + '</p><p><span class="text-gray-500">Father:</span> ' + (s.parent || '—') + '</p><p><span class="text-gray-500">Mother:</span> ' + (s.mother_name || '—') + '</p><p><span class="text-gray-500">Mobile:</span> ' + (s.mobile || '—') + '</p></div>' +
+    '<div class="bg-gray-50 p-3 rounded-xl"><p class="text-[10px] text-gray-400 uppercase font-bold mb-1">व्यक्तिगत</p><p><span class="text-gray-500">DOB:</span> ' + (s.dob ? fmtDateIN(s.dob) : '—') + '</p><p><span class="text-gray-500">पिता:</span> ' + (s.parent || '—') + '</p><p><span class="text-gray-500">माता:</span> ' + (s.mother_name || '—') + '</p><p><span class="text-gray-500">Mobile:</span> ' + (s.mobile || '—') + '</p></div>' +
     '<div class="bg-blue-50 p-3 rounded-xl"><p class="text-[10px] text-blue-400 uppercase font-bold mb-1">आईडी</p><p><span class="text-gray-500">Pravesh:</span> ' + (s.praveshank || '—') + '</p><p><span class="text-gray-500">Apaar:</span> ' + (s.apaar_id || '—') + '</p><p><span class="text-gray-500">PEN:</span> ' + (s.pen || '—') + '</p><p><span class="text-gray-500">Aadhaar:</span> ' + (s.aadhaar || '—') + '</p></div>' +
-    '<div class="bg-green-50 p-3 rounded-xl col-span-2"><p class="text-[10px] text-green-400 uppercase font-bold mb-1">बैंक</p><p><span class="text-gray-500">Holder:</span> ' + (s.bank_holder || '—') + '</p><p><span class="text-gray-500">A/C:</span> ' + (s.bank_ac || '—') + '</p><p><span class="text-gray-500">Bank:</span> ' + (s.bank_name || '—') + '</p></div></div>' +
+    '<div class="bg-green-50 p-3 rounded-xl col-span-2"><p class="text-[10px] text-green-400 uppercase font-bold mb-1">बैंक</p><p><span class="text-gray-500">Holder:</span> ' + (s.bank_holder || '—') + '</p><p><span class="text-gray-500">A/C:</span> ' + (s.bank_ac || '—') + '</p><p><span class="text-gray-500">Bank:</span> ' + (s.bank_name || '—') + '</p></div>' +
+    (attLog || '') + '</div>' +
     actions + '</div>');
+  setTimeout(safeCreateIcons, 30);
 }
 function editS(id) {
   if (currentUserRole !== 'admin') { toast('⛔ Only Admin!', 0); return; }
@@ -2419,7 +2458,7 @@ function dR() {
     var avg = tD ? Math.round(tP / (tP + tA) * 100) : 0;
     barsEl.innerHTML = '<div class="flex flex-wrap items-center gap-3 mb-4">' +
       '<h3 class="font-bold text-sm">मासिक — ' + fullMonthYear + '</h3>' +
-      '<span class="text-[10px] bg-teal-100 px-2 py-0.5 rounded-full text-teal-700 font-semibold">' + tD + ' दिन</span></div>' +
+      '<span class="text-[10px] bg-teal-100 px-2 py-0.5 rounded-full text-teal-700 font-semibold" title="वे दिन जिनमें उपस्थिति दर्ज की गई">' + tD + ' उपस्थिति दिन</span></div>' +
       '<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">' +
       '<div class="bg-emerald-50 rounded-xl p-3 text-center"><p class="text-2xl font-bold text-emerald-700">' + tP + '</p><p class="text-[10px] text-gray-500">उपस्थित</p></div>' +
       '<div class="bg-rose-50 rounded-xl p-3 text-center"><p class="text-2xl font-bold text-rose-700">' + tA + '</p><p class="text-[10px] text-gray-500">अनुपस्थित</p></div>' +
