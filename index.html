@@ -464,7 +464,7 @@ button, a, label { min-height: 36px; }
                 <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">क्र.</th>
                 <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">नाम</th>
                 <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">कक्षा</th>
-                <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wider hidden sm:table-cell">पिता</th>
+                <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wider hidden sm:table-cell">माता</th>
                 <th class="text-center px-4 py-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">%</th>
                 <th class="text-left px-4 py-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Action</th>
               </tr></thead>
@@ -1253,6 +1253,15 @@ function doLogin() {
   if (fbDB) startRealtimeListeners();
   else setSyncUI('local');
 
+  // ✅ Har login par Abhay AI chat fresh start hoga
+  abhayHistory = [];
+  var abhayMsgsEl = document.getElementById('abhayMsgs');
+  if (abhayMsgsEl) {
+    abhayMsgsEl.innerHTML = '<div class="ai-msg bot">Namaste! 👋 Main <b>Abhay</b> hoon — aapka school AI assistant.<br><br>School ki koi bhi details poochho — attendance, students, MDM, reports — sab bataunga! 😊</div>';
+  }
+  var abhaySugEl = document.getElementById('abhaySuggestions');
+  if (abhaySugEl) abhaySugEl.style.display = 'flex';
+
   toast(currentUserRole === 'admin' ? '🎉 वापसी Admin!' : '👁️ Viewer Mode — Read Only');
 }
 
@@ -1639,7 +1648,7 @@ function dS2() {
       '<td class="px-4 py-3 text-gray-400 text-xs">' + (i + 1) + '</td>' +
       '<td class="px-4 py-3"><button onclick="viewStudent(' + s.id + ')" class="font-semibold text-gray-800 hover:text-teal-600 text-xs text-left">' + s.name + '</button><p class="text-[10px] text-gray-400">' + (s.gender === 'F' ? '♀' : '♂') + '</p></td>' +
       '<td class="px-4 py-3"><span class="bg-gray-100 px-2 py-0.5 rounded text-[11px]">Cl.' + s.cls + '</span></td>' +
-      '<td class="px-4 py-3 text-gray-500 text-xs hidden sm:table-cell">' + (s.parent || '—') + '</td>' +
+      '<td class="px-4 py-3 text-gray-500 text-xs hidden sm:table-cell">' + (s.mother_name || s.parent || '—') + '</td>' +
       '<td class="px-4 py-3 text-center">' + ab + '</td>' +
       '<td class="px-4 py-3">' + actions + '</td></tr>';
   }).join('');
@@ -2509,7 +2518,7 @@ function doImp(e) {
 }
 
 // ===== ABHAY AI =====
-var ABHAY_WORKER = 'https://kanchanschool.kanchanabhay72.workers.dev/';
+var ABHAY_WORKER = 'https://fox-ai-bot.abhaypawan01.workers.dev/';
 var abhayHistory = [];
 var abhayOpen = false;
 
