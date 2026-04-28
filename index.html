@@ -7,8 +7,34 @@
 <meta name="theme-color" content="#0f766e">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<script>
+// Tailwind config - suppress CDN warning
+if (typeof tailwind !== 'undefined') {
+  tailwind.config = { corePlugins: { preflight: true } };
+}
+</script>
+<script src="https://unpkg.com/lucide@0.395.0/dist/umd/lucide.min.js"></script>
+<script>
+// Lucide fallback - agar unpkg fail ho to cdnjs se load karo
+(function() {
+  function checkLucide() {
+    if (typeof lucide === 'undefined') {
+      var s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/lucide/0.395.0/umd/lucide.min.js';
+      s.onload = function() { if (document.readyState === 'complete' || document.readyState === 'interactive') { try { lucide.createIcons(); } catch(e){} } };
+      document.head.appendChild(s);
+    }
+  }
+  window.addEventListener('load', checkLucide);
+  setTimeout(checkLucide, 3000);
+})();
+</script>
+<!-- SheetJS for Excel export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- jsPDF for PDF export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script>
@@ -184,13 +210,75 @@ button, a, label { min-height: 36px; }
 @supports (padding: max(0px)) {
   .main-safe { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
 }
+
+/* ===== ABHAY AI ===== */
+#abhayBtn {
+  position: fixed; bottom: 24px; right: 20px; z-index: 999;
+  width: 56px; height: 56px; border-radius: 50%;
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  box-shadow: 0 8px 24px rgba(15,118,110,.45);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; border: none; transition: all .3s cubic-bezier(.34,1.56,.64,1);
+  animation: pulse-glow 2.5s ease-in-out infinite;
+}
+#abhayBtn:hover { transform: scale(1.12); }
+#abhayBtn.hidden-btn { display: none; }
+
+#abhayPanel {
+  position: fixed; bottom: 90px; right: 16px; z-index: 998;
+  width: min(380px, calc(100vw - 32px));
+  background: white; border-radius: 20px;
+  box-shadow: 0 24px 64px rgba(0,0,0,.18);
+  display: flex; flex-direction: column;
+  overflow: hidden; transition: all .35s cubic-bezier(.34,1.56,.64,1);
+  transform-origin: bottom right;
+  max-height: 75vh;
+}
+#abhayPanel.ai-closed {
+  transform: scale(0) translateY(20px); opacity: 0; pointer-events: none;
+}
+#abhayPanel.ai-open {
+  transform: scale(1) translateY(0); opacity: 1;
+}
+.ai-header {
+  background: linear-gradient(135deg, #0f766e, #0d9488);
+  padding: 14px 16px; display: flex; align-items: center; gap: 10px;
+}
+.ai-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(255,255,255,.2); display: flex; align-items: center;
+  justify-content: center; font-size: 18px; flex-shrink: 0;
+}
+.ai-msgs {
+  flex: 1; overflow-y: auto; padding: 12px; display: flex;
+  flex-direction: column; gap: 8px; min-height: 200px; max-height: 380px;
+}
+.ai-msg { max-width: 85%; padding: 9px 13px; border-radius: 14px; font-size: 13px; line-height: 1.5; word-break: break-word; }
+.ai-msg.bot { background: linear-gradient(135deg,#f0fdf9,#ccfbf1); color: #134e4a; align-self: flex-start; border-bottom-left-radius: 4px; }
+.ai-msg.user { background: linear-gradient(135deg,#0f766e,#14b8a6); color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
+.ai-msg.typing { background: #f0fdf9; color: #94a3b8; font-style: italic; }
+.ai-suggestions { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 8px; }
+.ai-chip { background: #f0fdf9; border: 1px solid #99f6e4; color: #0f766e; font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 99px; cursor: pointer; transition: all .2s; white-space: nowrap; }
+.ai-chip:hover { background: #ccfbf1; }
+.ai-input-row { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid #f1f5f9; background: #fafafa; }
+.ai-input { flex: 1; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 8px 12px; font-size: 13px; outline: none; background: white; }
+.ai-input:focus { border-color: #14b8a6; }
+.ai-send { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg,#0f766e,#14b8a6); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: white; flex-shrink: 0; transition: all .2s; }
+.ai-send:hover { transform: scale(1.08); }
+
+/* ===== EXPORT BUTTONS ===== */
+.export-btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; transition: all .2s; }
+.export-excel { background: linear-gradient(135deg,#16a34a,#22c55e); color: white; box-shadow: 0 3px 10px rgba(22,163,74,.3); }
+.export-excel:hover { transform: translateY(-1px); box-shadow: 0 5px 15px rgba(22,163,74,.4); }
+.export-pdf { background: linear-gradient(135deg,#dc2626,#ef4444); color: white; box-shadow: 0 3px 10px rgba(220,38,38,.3); }
+.export-pdf:hover { transform: translateY(-1px); box-shadow: 0 5px 15px rgba(220,38,38,.4); }
 </style>
 </head>
 <body class="bg-slate-100 text-gray-900 min-h-screen">
 
 <div id="toastBox" class="fixed top-3 right-3 z-[400] flex flex-col gap-2 max-w-[85vw] pointer-events-none"></div>
 
-<div id="autosaveIndicator" class="fixed bottom-4 right-4 z-[300] hidden">
+<div id="autosaveIndicator" class="fixed bottom-24 right-4 z-[300] hidden">
   <div class="bg-emerald-600 text-white px-3 py-2 rounded-xl shadow-lg text-xs flex items-center gap-2 font-semibold">
     <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
     <span id="autosaveTxt">ऑटो-सेव हो गया</span>
@@ -206,7 +294,7 @@ button, a, label { min-height: 36px; }
         <div class="absolute inset-2 rounded-full border-2 border-white/30"></div>
       </div>
       <h1 class="text-3xl font-bold text-white tracking-wide mb-2 drop-shadow-lg">P.S. Gauri Bidoor</h1>
-      <p class="text-teal-200/90 text-sm mt-2 tracking-widest uppercase font-medium">🎓 प्रबंधन प्रणाली v7.7</p>
+      <p class="text-teal-200/90 text-sm mt-2 tracking-widest uppercase font-medium">🎓 प्रबंधन प्रणाली</p>
     </div>
     <div class="glass rounded-3xl p-8 shadow-2xl">
       <div class="space-y-5">
@@ -361,9 +449,13 @@ button, a, label { min-height: 36px; }
               <option value="">सभी</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
             </select>
           </div>
-          <button id="addStudentBtn" onclick="openSM()" class="bg-gradient-to-r from-teal-600 to-teal-500 text-white px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-lg shadow-teal-500/20 transition-all hover:-translate-y-0.5 shrink-0">
-            <i data-lucide="plus" class="w-4 h-4"></i>जोड़ें
-          </button>
+          <div class="flex gap-2 flex-wrap">
+            <button onclick="exportStudentsExcel()" class="export-btn export-excel"><i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>Excel</button>
+            <button onclick="exportStudentsPDF()" class="export-btn export-pdf"><i data-lucide="file-text" class="w-3.5 h-3.5"></i>PDF</button>
+            <button id="addStudentBtn" onclick="openSM()" class="bg-gradient-to-r from-teal-600 to-teal-500 text-white px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-lg shadow-teal-500/20 transition-all hover:-translate-y-0.5 shrink-0">
+              <i data-lucide="plus" class="w-4 h-4"></i>जोड़ें
+            </button>
+          </div>
         </div>
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div class="overflow-x-auto">
@@ -551,7 +643,11 @@ button, a, label { min-height: 36px; }
             <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 card-enter">
               <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
                 <h3 class="font-bold text-sm text-gray-800">📅 मासिक — <span id="mMonthName">—</span></h3>
-                <input type="month" id="mMonthPicker" onchange="renderMiddayMonth();calculateMonthlyGrain();calcMidday();" class="border border-gray-200 rounded-lg px-2 py-1 text-xs shadow-sm">
+                <div class="flex gap-2 flex-wrap items-center">
+                  <button onclick="exportMDMExcel(document.getElementById('mMonthPicker').value)" class="export-btn export-excel" style="padding:5px 10px;font-size:11px;"><i data-lucide="file-spreadsheet" class="w-3 h-3"></i>Excel</button>
+                  <button onclick="exportMDMPDF(document.getElementById('mMonthPicker').value)" class="export-btn export-pdf" style="padding:5px 10px;font-size:11px;"><i data-lucide="file-text" class="w-3 h-3"></i>PDF</button>
+                  <input type="month" id="mMonthPicker" onchange="renderMiddayMonth();calculateMonthlyGrain();calcMidday();" class="border border-gray-200 rounded-lg px-2 py-1 text-xs shadow-sm">
+                </div>
               </div>
               <div class="mb-3">
                 <label class="flex items-center gap-2 text-[11px] text-amber-700 font-semibold cursor-pointer select-none">
@@ -717,9 +813,13 @@ button, a, label { min-height: 36px; }
               </div>
             </div>
             <!-- FIX: Sync button in report tab for fresh Firebase data -->
-            <button onclick="syncAndRefreshReport()" class="bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-700 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all">
-              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>Firebase से Refresh
-            </button>
+            <div class="flex gap-2 flex-wrap">
+              <button onclick="exportAttendanceExcel(getReportMonthVal())" class="export-btn export-excel"><i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>Excel</button>
+              <button onclick="exportAttendancePDF(getReportMonthVal())" class="export-btn export-pdf"><i data-lucide="file-text" class="w-3.5 h-3.5"></i>PDF</button>
+              <button onclick="syncAndRefreshReport()" class="bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-700 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>Firebase से Refresh
+              </button>
+            </div>
           </div>
         </div>
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 card-enter" id="rpBars"></div>
@@ -921,7 +1021,7 @@ function openM(h) {
   modal.classList.remove('hidden');
   modal.classList.add('flex');
   document.body.style.overflow = 'hidden';
-  setTimeout(function() { lucide.createIcons(); }, 10);
+  setTimeout(safeCreateIcons, 10);
 }
 function closeM() {
   var modal = document.getElementById('modal');
@@ -1147,7 +1247,8 @@ function doLogin() {
   populateReportYearSelector(today.getFullYear());
   populateMonthSelector();
   go('dashboard');
-  lucide.createIcons();
+  safeCreateIcons();
+  showAbhayBtn(true);
 
   if (fbDB) startRealtimeListeners();
   else setSyncUI('local');
@@ -1274,7 +1375,7 @@ function go(t) {
     case 'teachers': renderTeachers(); break;
     case 'settings': updateStorageUsage(); break;
   }
-  setTimeout(function() { lucide.createIcons(); }, 50);
+  setTimeout(safeCreateIcons, 50);
 }
 
 function refreshCurrentTab() {
@@ -1482,7 +1583,7 @@ function dDash() {
   var md = (D.g('midday', []) || []).find(function(x) { return x.date === today; });
   document.getElementById('dM').textContent = md ? '₹' + md.total.toFixed(0) : '₹0';
   updateDashMonthlyAtt();
-  setTimeout(function() { lucide.createIcons(); }, 20);
+  setTimeout(safeCreateIcons, 20);
 }
 
 // ===== STUDENTS =====
@@ -1542,7 +1643,7 @@ function dS2() {
       '<td class="px-4 py-3 text-center">' + ab + '</td>' +
       '<td class="px-4 py-3">' + actions + '</td></tr>';
   }).join('');
-  setTimeout(function() { lucide.createIcons(); }, 20);
+  setTimeout(safeCreateIcons, 20);
 }
 
 function openSM(s) {
@@ -1710,7 +1811,7 @@ function dA2() {
           '<input type="radio" name="a' + s.id + '" value="absent" ' + (isAbsent ? 'checked' : '') + ' ' + dis + ' class="sr-only">' +
           '<i data-lucide="x" class="w-4 h-4"></i></label></td></tr>';
   }).join('');
-  setTimeout(function() { lucide.createIcons(); }, 20);
+  setTimeout(safeCreateIcons, 20);
 }
 
 function attToggle(sid, val) {
@@ -2056,7 +2157,7 @@ function renderMiddayMonth() {
     }
   }).join('');
   document.getElementById('mMonthTotal').textContent = '₹' + total.toFixed(2);
-  setTimeout(function() { lucide.createIcons(); }, 20);
+  setTimeout(safeCreateIcons, 20);
 }
 function delMidday(id) {
   if (currentUserRole !== 'admin') { toast('⛔ Only Admin!', 0); return; }
@@ -2166,7 +2267,7 @@ function renderFinanceTable() {
       '<td class="px-4 py-2 text-center">' + db + '</td></tr>';
   }).join('');
   document.getElementById('fNetTotal').textContent = '₹' + net.toFixed(2);
-  setTimeout(function() { lucide.createIcons(); }, 20);
+  setTimeout(safeCreateIcons, 20);
 }
 function delFinance(id) {
   if (currentUserRole !== 'admin') { toast('⛔ Only Admin!', 0); return; }
@@ -2212,7 +2313,7 @@ function renderTeachers() {
       '<div class="text-[10px]"><span class="text-gray-500">ज्वाइनिंग:</span> <span class="font-semibold">' + joiningDisplay + '</span>' + (experience ? ' <span class="text-teal-600 ml-1">(' + experience + ')</span>' : '') + '</div>' +
       '<div class="flex items-center gap-2"><span class="text-[10px] ' + (isPres ? 'text-green-600 font-bold' : 'text-red-500') + '">' + (isPres ? '✓ P' : '✕ A') + '</span>' + attBtn + '</div></div></div>';
   }).join('');
-  setTimeout(function() { lucide.createIcons(); }, 20);
+  setTimeout(safeCreateIcons, 20);
 }
 function openTeacherModal(id) {
   if (currentUserRole !== 'admin') { toast('⛔ Only Admin!', 0); return; }
@@ -2294,12 +2395,13 @@ function dR() {
     var dt = yr + '-' + String(mi + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
     if (isHolidayDate(dt)) continue;
     var att = D.g('att_' + dt, []) || [];
-    var rel = att.filter(function(a) { return ss.find(function(s) { return s.id === a.sid; }); });
+    var activeIds = ss.map(function(s){ return s.id; });
+    var rel = att.filter(function(a) { return activeIds.indexOf(a.sid) !== -1; });
     if (rel.length) {
       var p = rel.filter(function(a) { return a.st === 'present'; }).length;
-      var ab = rel.length - p;
-      rows.push({date: dt, total: rel.length, p: p, a: ab, pct: Math.round(p / rel.length * 100) || 0});
-      tP += p; tA += ab; tD++;
+      var ab = rel.filter(function(a) { return a.st !== 'present'; }).length;
+      rows.push({date: dt, total: ss.length, p: p, a: ss.length - p, pct: Math.round(p / ss.length * 100) || 0});
+      tP += p; tA += (ss.length - p); tD++;
     }
   }
   var fullMonthYear = MN[mi] + ' ' + yr;
@@ -2406,9 +2508,335 @@ function doImp(e) {
   e.target.value = '';
 }
 
+// ===== ABHAY AI =====
+var ABHAY_WORKER = 'https://fox-ai-bot.abhaypawan01.workers.dev/';
+var abhayHistory = [];
+var abhayOpen = false;
+
+function toggleAbhay() {
+  abhayOpen = !abhayOpen;
+  var panel = document.getElementById('abhayPanel');
+  if (abhayOpen) {
+    panel.classList.remove('ai-closed'); panel.classList.add('ai-open');
+    safeCreateIcons(); // send icon render karo
+    document.getElementById('abhayInput').focus();
+  } else {
+    panel.classList.remove('ai-open'); panel.classList.add('ai-closed');
+  }
+}
+
+function getSchoolContext() {
+  var students = D.g('students', []) || [];
+  var active = students.filter(function(s){ return s.st === 'active'; });
+  var today = new Date().toISOString().slice(0,10);
+  var todayAtt = D.g('att_' + today, []) || [];
+  var todayP = todayAtt.filter(function(a){ return a.st === 'present' && active.map(function(s){return s.id;}).indexOf(a.sid) !== -1; }).length;
+  var classCounts = {};
+  active.forEach(function(s){ classCounts[s.cls] = (classCounts[s.cls]||0)+1; });
+  var mdm = D.g('midday', []) || [];
+  var curMonth = today.slice(0,7);
+  var mdmMonth = mdm.filter(function(m){ return m.date.startsWith(curMonth); });
+  var mdmTotal = mdmMonth.reduce(function(s,r){ return s+(r.total||0); }, 0);
+  var mdmDays = mdmMonth.length;
+  var holidays = D.g('holidays', []) || [];
+  var teachers = D.g('teachers', []) || [];
+  var finance = D.g('finance', []) || [];
+  var financeTotal = finance.reduce(function(s,r){ return s+(r.amount||0); }, 0);
+  var schoolName = 'P.S. Gauri Bidoor';
+  return 'School: ' + schoolName + '\n' +
+    'Aaj ki date: ' + today + '\n' +
+    'Total active students: ' + active.length + '\n' +
+    'Aaj present: ' + todayP + ', Absent: ' + (active.length - todayP) + '\n' +
+    'Class-wise students: ' + JSON.stringify(classCounts) + '\n' +
+    'Teachers: ' + teachers.length + '\n' +
+    'Is mahine MDM records: ' + mdmDays + ' din, Total kharch: ₹' + mdmTotal.toFixed(2) + '\n' +
+    'Total holidays registered: ' + holidays.length + '\n' +
+    'Finance total: ₹' + financeTotal.toFixed(2) + '\n';
+}
+
+function abhayAsk(quickMsg) {
+  var inp = document.getElementById('abhayInput');
+  var msg = quickMsg || (inp ? inp.value.trim() : '');
+  if (!msg) return;
+  if (inp) inp.value = '';
+  // Disable input during fetch to prevent double-send
+  if (inp) inp.disabled = true;
+  abhayAddMsg(msg, 'user');
+  document.getElementById('abhaySuggestions').style.display = 'none';
+  var typingId = 'typing_' + Date.now();
+  abhayAddMsg('Soch raha hoon... 🤔', 'typing', typingId);
+  var schoolCtx = getSchoolContext();
+  var systemPrompt = 'Tu Abhay hai — P.S. Gauri Bidoor school ka AI assistant. Tu Hinglish (Hindi + English mix) mein baat karta hai — friendly, helpful aur professional. School ke baare mein poori jaankari rakhta hai.\n\nSchool ka current data:\n' + schoolCtx + '\nHamesha short, clear aur helpful jawab do. Numbers aur stats clearly batao. Agar kuch nahi pata to honestly bolo.';
+  // FIX: History push karo response aane ke baad, pehle nahi
+  fetch(ABHAY_WORKER, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      message: systemPrompt + '\n\nUser: ' + msg, // system context message ke saath bhejo
+      history: abhayHistory.slice(-8),
+      systemInstruction: systemPrompt
+    })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data) {
+    var el = document.getElementById(typingId);
+    if (el) el.remove();
+    if (inp) inp.disabled = false;
+    var reply = data.text || data.error || 'Kuch gadbad ho gayi, dobara try karo!';
+    // FIX: Dono history entries saath push karo after success
+    abhayHistory.push({ role: 'user', parts: [{ text: msg }] });
+    abhayHistory.push({ role: 'model', parts: [{ text: reply }] });
+    abhayAddMsg(reply, 'bot');
+    if (inp) inp.focus();
+  })
+  .catch(function() {
+    var el = document.getElementById(typingId);
+    if (el) el.remove();
+    if (inp) inp.disabled = false;
+    abhayAddMsg('Network error! Internet check karo aur dobara try karo. 🔌', 'bot');
+  });
+}
+
+function abhayAddMsg(text, type, id) {
+  var msgs = document.getElementById('abhayMsgs');
+  if (!msgs) return;
+  var div = document.createElement('div');
+  div.className = 'ai-msg ' + type;
+  if (id) div.id = id;
+  div.innerHTML = text.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// Show/hide Abhay button based on login
+function showAbhayBtn(show) {
+  var btn = document.getElementById('abhayBtn');
+  if (btn) { btn.classList.toggle('hidden-btn', !show); }
+}
+
+// ===== EXCEL / PDF EXPORT =====
+
+// 1. Students class-wise Excel
+function exportStudentsExcel() {
+  var students = D.g('students', []) || [];
+  var active = students.filter(function(s){ return s.st === 'active'; });
+  if (!active.length) { toast('कोई छात्र नहीं!', 0); return; }
+  var wb = XLSX.utils.book_new();
+  // Class-wise sheets
+  var classes = [...new Set(active.map(function(s){ return s.cls; }))].sort();
+  classes.forEach(function(cls) {
+    var rows = active.filter(function(s){ return s.cls === cls; });
+    var data = [['क्र.सं.', 'नाम', 'पिता का नाम', 'लिंग', 'जन्मतिथि', 'मोबाइल', 'श्रेणी', 'कक्षा']];
+    rows.forEach(function(s, i) {
+      data.push([i+1, s.name||'', s.father||'', s.gender||'', s.dob||'', s.phone||'', s.cat||'', s.cls||'']);
+    });
+    var ws = XLSX.utils.aoa_to_sheet(data);
+    ws['!cols'] = [{wch:5},{wch:22},{wch:22},{wch:8},{wch:12},{wch:14},{wch:10},{wch:8}];
+    XLSX.utils.book_append_sheet(wb, ws, 'Class ' + cls);
+  });
+  // All students sheet
+  var allData = [['क्र.सं.', 'नाम', 'पिता का नाम', 'लिंग', 'जन्मतिथि', 'मोबाइल', 'श्रेणी', 'कक्षा', 'स्थिति']];
+  active.forEach(function(s, i) {
+    allData.push([i+1, s.name||'', s.father||'', s.gender||'', s.dob||'', s.phone||'', s.cat||'', s.cls||'', s.st||'']);
+  });
+  var wsAll = XLSX.utils.aoa_to_sheet(allData);
+  wsAll['!cols'] = [{wch:5},{wch:22},{wch:22},{wch:8},{wch:12},{wch:14},{wch:10},{wch:8},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, wsAll, 'All Students');
+  XLSX.writeFile(wb, 'Students_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  toast('✅ Excel download हो गया!');
+}
+
+// 2. Students class-wise PDF
+function exportStudentsPDF() {
+  if (typeof jspdf === 'undefined') { toast('PDF library load हो रही है...', 0); return; }
+  var students = D.g('students', []) || [];
+  var active = students.filter(function(s){ return s.st === 'active'; });
+  if (!active.length) { toast('कोई छात्र नहीं!', 0); return; }
+  var doc = new jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  var classes = [...new Set(active.map(function(s){ return s.cls; }))].sort();
+  var first = true;
+  classes.forEach(function(cls) {
+    if (!first) doc.addPage();
+    first = false;
+    var rows = active.filter(function(s){ return s.cls === cls; });
+    doc.setFontSize(14); doc.setTextColor(15, 118, 110);
+    doc.text('P.S. Gauri Bidoor — Class ' + cls + ' Students (' + rows.length + ')', 14, 14);
+    doc.setFontSize(9); doc.setTextColor(100);
+    doc.text('Date: ' + new Date().toLocaleDateString('hi-IN'), 14, 20);
+    var tableData = rows.map(function(s, i) {
+      return [i+1, s.name||'—', s.father||'—', s.gender||'—', s.dob||'—', s.phone||'—', s.cat||'—'];
+    });
+    doc.autoTable({
+      startY: 24,
+      head: [['#', 'Name', 'Father', 'Gender', 'DOB', 'Mobile', 'Category']],
+      body: tableData,
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: [15, 118, 110], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [240, 253, 250] },
+      theme: 'grid'
+    });
+  });
+  doc.save('Students_' + new Date().toISOString().slice(0,10) + '.pdf');
+  toast('✅ PDF download हो गया!');
+}
+
+// 3. Attendance Report Excel
+function exportAttendanceExcel(monthVal) {
+  var month = monthVal || new Date().toISOString().slice(0,7);
+  var students = D.g('students', []) || [];
+  var active = students.filter(function(s){ return s.st === 'active'; });
+  if (!active.length) { toast('कोई छात्र नहीं!', 0); return; }
+  // Get all dates in month that have attendance
+  var allKeys = Object.keys(localStorage).filter(function(k){ return k.startsWith('g_att_' + month); });
+  var dates = allKeys.map(function(k){ return k.replace('g_att_',''); }).sort();
+  if (!dates.length) { toast('इस महीने की attendance नहीं मिली!', 0); return; }
+  var wb = XLSX.utils.book_new();
+  var header = ['क्र.सं.', 'नाम', 'कक्षा'].concat(dates.map(function(d){ return d.slice(8); })).concat(['उपस्थित', 'अनुपस्थित', '%']);
+  var data = [header];
+  active.forEach(function(s, i) {
+    var row = [i+1, s.name||'', s.cls||''];
+    var p = 0, a = 0;
+    dates.forEach(function(dt) {
+      var att = D.g('att_' + dt, []) || [];
+      var rec = att.find(function(r){ return r.sid === s.id; });
+      if (rec) { row.push(rec.st === 'present' ? 'P' : 'A'); rec.st === 'present' ? p++ : a++; }
+      else { row.push('—'); }
+    });
+    row.push(p, a, dates.length ? Math.round(p/dates.length*100)+'%' : '—');
+    data.push(row);
+  });
+  var ws = XLSX.utils.aoa_to_sheet(data);
+  XLSX.utils.book_append_sheet(wb, ws, 'Attendance ' + month);
+  XLSX.writeFile(wb, 'Attendance_' + month + '.xlsx');
+  toast('✅ Attendance Excel download!');
+}
+
+// 4. MDM Report Excel
+function exportMDMExcel(monthVal) {
+  var month = monthVal || new Date().toISOString().slice(0,7);
+  var mdm = D.g('midday', []) || [];
+  var filtered = mdm.filter(function(m){ return m.date.startsWith(month); });
+  if (!filtered.length) { toast('MDM data नहीं मिला!', 0); return; }
+  filtered.sort(function(a,b){ return a.date.localeCompare(b.date); });
+  var wb = XLSX.utils.book_new();
+  var data = [['तारीख', 'दिन', 'भोजन प्रकार', 'उपस्थित बच्चे', 'अनाज (g)', 'दर (₹/बच्चा)', 'भोजन खर्च', 'फल खर्च', 'कुल खर्च']];
+  var totalKids = 0, totalGrain = 0, totalCost = 0;
+  filtered.forEach(function(r) {
+    var d = new Date(r.date + 'T12:00:00');
+    var days = ['रवि','सोम','मंगल','बुध','गुरु','शुक्र','शनि'];
+    data.push([
+      r.date, days[d.getDay()], r.mealType||'—',
+      r.count||0, r.quantity||0, r.mealCostRate||0,
+      (r.mealCost||0).toFixed(2), (r.fruitCost||0).toFixed(2), (r.total||0).toFixed(2)
+    ]);
+    totalKids += (r.count||0); totalGrain += (r.quantity||0); totalCost += (r.total||0);
+  });
+  data.push(['', '', 'TOTAL', totalKids, totalGrain, '', '', '', totalCost.toFixed(2)]);
+  var ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = [{wch:12},{wch:8},{wch:16},{wch:14},{wch:10},{wch:14},{wch:12},{wch:10},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws, 'MDM ' + month);
+  XLSX.writeFile(wb, 'MDM_Report_' + month + '.xlsx');
+  toast('✅ MDM Excel download!');
+}
+
+// 5. MDM Report PDF
+function exportMDMPDF(monthVal) {
+  if (typeof jspdf === 'undefined') { toast('PDF load हो रही है...', 0); return; }
+  var month = monthVal || new Date().toISOString().slice(0,7);
+  var mdm = D.g('midday', []) || [];
+  var filtered = mdm.filter(function(m){ return m.date.startsWith(month); });
+  if (!filtered.length) { toast('MDM data नहीं मिला!', 0); return; }
+  filtered.sort(function(a,b){ return a.date.localeCompare(b.date); });
+  var doc = new jspdf.jsPDF({ unit: 'mm', format: 'a4' });
+  doc.setFontSize(15); doc.setTextColor(15,118,110);
+  doc.text('P.S. Gauri Bidoor — MDM Report', 14, 14);
+  doc.setFontSize(10); doc.setTextColor(80);
+  doc.text('Month: ' + month + '   |   Generated: ' + new Date().toLocaleDateString('hi-IN'), 14, 21);
+  var totalCost = filtered.reduce(function(s,r){ return s+(r.total||0); }, 0);
+  var totalKids = filtered.reduce(function(s,r){ return s+(r.count||0); }, 0);
+  var totalGrain = filtered.reduce(function(s,r){ return s+(r.quantity||0); }, 0);
+  doc.setFontSize(9); doc.setTextColor(15,118,110);
+  doc.text('Total Days: ' + filtered.length + '  |  Total Children: ' + totalKids + '  |  Total Grain: ' + (totalGrain/1000).toFixed(2) + ' kg  |  Total Cost: ₹' + totalCost.toFixed(2), 14, 28);
+  var days = ['रवि','सोम','मंगल','बुध','गुरु','शुक्र','शनि'];
+  var tableData = filtered.map(function(r, i) {
+    var d = new Date(r.date + 'T12:00:00');
+    return [i+1, r.date, days[d.getDay()], r.mealType||'—', r.count||0, ((r.quantity||0)/1000).toFixed(2)+' kg', '₹'+(r.mealCostRate||0), '₹'+(r.total||0).toFixed(2)];
+  });
+  tableData.push(['', '', '', 'TOTAL', totalKids, (totalGrain/1000).toFixed(2)+' kg', '', '₹'+totalCost.toFixed(2)]);
+  doc.autoTable({
+    startY: 32,
+    head: [['#', 'Date', 'Day', 'Food', 'Children', 'Grain', 'Rate', 'Total']],
+    body: tableData,
+    styles: { fontSize: 9, cellPadding: 3 },
+    headStyles: { fillColor: [15,118,110], textColor: 255, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [240,253,250] },
+    theme: 'grid',
+    didParseCell: function(d) {
+      if (d.row.index === tableData.length - 1) {
+        d.cell.styles.fontStyle = 'bold'; d.cell.styles.fillColor = [204,251,241];
+      }
+    }
+  });
+  doc.save('MDM_Report_' + month + '.pdf');
+  toast('✅ MDM PDF download!');
+}
+
+// 6. Attendance Report PDF (monthly summary)
+function exportAttendancePDF(monthVal) {
+  if (typeof jspdf === 'undefined') { toast('PDF load हो रही है...', 0); return; }
+  var month = monthVal || new Date().toISOString().slice(0,7);
+  var allKeys = Object.keys(localStorage).filter(function(k){ return k.startsWith('g_att_' + month); });
+  var dates = allKeys.map(function(k){ return k.replace('g_att_',''); }).sort();
+  if (!dates.length) { toast('Attendance data नहीं मिला!', 0); return; }
+  var students = D.g('students', []) || [];
+  var active = students.filter(function(s){ return s.st === 'active'; });
+  var doc = new jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  doc.setFontSize(14); doc.setTextColor(15,118,110);
+  doc.text('P.S. Gauri Bidoor — Attendance Report: ' + month, 14, 14);
+  var tableData = active.map(function(s, i) {
+    var p = 0;
+    dates.forEach(function(dt) {
+      var att = D.g('att_' + dt, []) || [];
+      var rec = att.find(function(r){ return r.sid === s.id; });
+      if (rec && rec.st === 'present') p++;
+    });
+    var pct = dates.length ? Math.round(p/dates.length*100) : 0;
+    return [i+1, s.name||'—', s.cls||'—', p, dates.length - p, pct + '%'];
+  });
+  doc.autoTable({
+    startY: 20,
+    head: [['#', 'Name', 'Class', 'Present', 'Absent', '%']],
+    body: tableData,
+    styles: { fontSize: 9 },
+    headStyles: { fillColor: [15,118,110], textColor: 255 },
+    alternateRowStyles: { fillColor: [240,253,250] },
+    theme: 'grid'
+  });
+  doc.save('Attendance_' + month + '.pdf');
+  toast('✅ Attendance PDF download!');
+}
+
+// Helper to get current month picker value
+function getCurMonthPicker(id) {
+  var el = document.getElementById(id);
+  return el ? el.value : new Date().toISOString().slice(0,7);
+}
+
+// Get report tab current month as YYYY-MM
+function getReportMonthVal() {
+  var mEl = document.getElementById('rpM');
+  var yEl = document.getElementById('rpY');
+  var m = mEl ? parseInt(mEl.value) : new Date().getMonth();
+  var y = yEl ? parseInt(yEl.value) : new Date().getFullYear();
+  return y + '-' + String(m + 1).padStart(2, '0');
+}
+
 // ===== INIT =====
+function safeCreateIcons() {
+  try { if (typeof lucide !== 'undefined') lucide.createIcons(); } catch(e) {}
+}
 document.addEventListener('DOMContentLoaded', function() {
-  lucide.createIcons();
+  safeCreateIcons();
   setSyncUI(fbDB ? 'wait' : 'local');
   window.addEventListener('popstate', function() { closeM(); });
 });
@@ -2416,5 +2844,35 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeM();
 });
 </script>
+<!-- ===== ABHAY AI FLOATING BUTTON ===== -->
+<button id="abhayBtn" onclick="toggleAbhay()" title="Abhay AI से पूछें" class="hidden-btn">
+  <span style="font-size:22px;">🤖</span>
+</button>
+
+<!-- ===== ABHAY AI PANEL ===== -->
+<div id="abhayPanel" class="ai-closed">
+  <div class="ai-header">
+    <div class="ai-avatar">🤖</div>
+    <div style="flex:1">
+      <div style="color:white;font-weight:700;font-size:15px;">Abhay</div>
+      <div style="color:rgba(255,255,255,.75);font-size:11px;">School AI Assistant</div>
+    </div>
+    <button onclick="toggleAbhay()" style="background:rgba(255,255,255,.15);border:none;color:white;width:28px;height:28px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;">✕</button>
+  </div>
+  <div class="ai-msgs" id="abhayMsgs">
+    <div class="ai-msg bot">Namaste! 👋 Main <b>Abhay</b> hoon — aapka school AI assistant.<br><br>School ki koi bhi details poochho — attendance, students, MDM, reports — sab bataunga! 😊</div>
+  </div>
+  <div class="ai-suggestions" id="abhaySuggestions">
+    <span class="ai-chip" onclick="abhayAsk('Aaj kitne bacche present hain?')">📊 Aaj ki attendance</span>
+    <span class="ai-chip" onclick="abhayAsk('Total students kitne hain?')">👥 Total students</span>
+    <span class="ai-chip" onclick="abhayAsk('Is mahine ka MDM total kya hai?')">🍱 MDM summary</span>
+    <span class="ai-chip" onclick="abhayAsk('Sabse kam attendance kis class ki hai?')">📉 Low attendance</span>
+  </div>
+  <div class="ai-input-row">
+    <input id="abhayInput" class="ai-input" placeholder="Kuch bhi poochho..." onkeydown="if(event.key==='Enter')abhayAsk()">
+    <button class="ai-send" onclick="abhayAsk()"><i data-lucide="send" class="w-4 h-4"></i></button>
+  </div>
+</div>
+
 </body>
 </html>
