@@ -1253,6 +1253,15 @@ function doLogin() {
   if (fbDB) startRealtimeListeners();
   else setSyncUI('local');
 
+  // ✅ Har login par Abhay AI chat bilkul fresh start hoga
+  abhayHistory = [];
+  var abhayMsgsEl = document.getElementById('abhayMsgs');
+  if (abhayMsgsEl) {
+    abhayMsgsEl.innerHTML = '<div class="ai-msg bot">Namaste! 👋 Main <b>Abhay</b> hoon — aapka school AI assistant.<br><br>School ki koi bhi details poochho — attendance, students, MDM, reports — sab bataunga! 😊</div>';
+  }
+  var abhaySugEl = document.getElementById('abhaySuggestions');
+  if (abhaySugEl) abhaySugEl.style.display = 'flex';
+
   toast(currentUserRole === 'admin' ? '🎉 वापसी Admin!' : '👁️ Viewer Mode — Read Only');
 }
 
