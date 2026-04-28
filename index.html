@@ -1253,15 +1253,6 @@ function doLogin() {
   if (fbDB) startRealtimeListeners();
   else setSyncUI('local');
 
-  // ✅ Har login par Abhay AI chat fresh start hoga
-  abhayHistory = [];
-  var abhayMsgsEl = document.getElementById('abhayMsgs');
-  if (abhayMsgsEl) {
-    abhayMsgsEl.innerHTML = '<div class="ai-msg bot">Namaste! 👋 Main <b>Abhay</b> hoon — aapka school AI assistant.<br><br>School ki koi bhi details poochho — attendance, students, MDM, reports — sab bataunga! 😊</div>';
-  }
-  var abhaySugEl = document.getElementById('abhaySuggestions');
-  if (abhaySugEl) abhaySugEl.style.display = 'flex';
-
   toast(currentUserRole === 'admin' ? '🎉 वापसी Admin!' : '👁️ Viewer Mode — Read Only');
 }
 
@@ -2878,7 +2869,7 @@ document.addEventListener('keydown', function(e) {
     <span class="ai-chip" onclick="abhayAsk('Sabse kam attendance kis class ki hai?')">📉 Low attendance</span>
   </div>
   <div class="ai-input-row">
-    <input id="abhayInput" class="ai-input" placeholder="Kuch bhi poochho..." onkeydown="if(event.key==='Enter')abhayAsk()">
+    <input id="abhayInput" class="ai-input" placeholder="Kuch bhi poochho..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" onkeydown="if(event.key==='Enter')abhayAsk()">
     <button class="ai-send" onclick="abhayAsk()"><i data-lucide="send" class="w-4 h-4"></i></button>
   </div>
 </div>
