@@ -196,6 +196,53 @@ input:focus, select:focus, textarea:focus { outline:none; border-color:#14b8a6 !
 .viewer-mode select:not(.viewer-allow) { pointer-events:none; opacity:.6; background:#f9fafb !important; }
 /* Date inputs: fully interactive for viewer (saves are blocked by JS role checks) */
 
+/* ===== MOBILE RESPONSIVENESS FIXES ===== */
+@media (max-width: 640px) {
+  /* Main content padding tighter on mobile */
+  .main-safe { padding: 12px !important; }
+
+  /* Report & student tables — horizontal scroll */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { min-width: 500px; }
+
+  /* Report filter row — stack vertically */
+  .report-filter-row { flex-direction: column; gap: 8px; }
+  .report-filter-row > div { width: 100%; }
+
+  /* MDM left panel full width on mobile */
+  .mdm-grid { flex-direction: column !important; }
+  .mdm-left, .mdm-right { width: 100% !important; min-width: unset !important; }
+
+  /* Dashboard cards 2-col on mobile */
+  .dash-4col { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* Attendance grid — 2 cols on tiny screens */
+  #attGrid { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* Modal full-width on mobile */
+  .modal-inner { margin: 0 !important; border-radius: 16px 16px 0 0 !important; max-height: 92vh; overflow-y: auto; }
+  #modalBox { align-items: flex-end !important; padding: 0 !important; }
+
+  /* Abhay chatbot smaller on mobile */
+  #abhayPanel { width: calc(100vw - 16px) !important; right: 8px !important; left: 8px !important; bottom: 80px !important; }
+  #abhayBtn { bottom: 16px !important; right: 12px !important; }
+
+  /* Date range section stack */
+  .date-range-row { flex-direction: column !important; gap: 8px; }
+  .date-range-row input, .date-range-row button { width: 100% !important; }
+
+  /* Finance/teacher action buttons smaller */
+  .action-btns button { padding: 4px 6px !important; }
+
+  /* Header date hidden on very small screens */
+  #td { display: none !important; }
+}
+
+@media (max-width: 380px) {
+  #attGrid { grid-template-columns: repeat(1, 1fr) !important; }
+  .sc { padding: 10px !important; }
+}
+/* ===== END MOBILE FIXES ===== */
 ::-webkit-scrollbar { width:4px; height:4px; }
 ::-webkit-scrollbar-track { background:transparent; }
 ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:2px; }
@@ -792,8 +839,8 @@ button, a, label { min-height: 36px; }
       <!-- REPORT -->
       <div id="tab-report" class="tc">
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 card-enter">
-          <div class="flex flex-wrap gap-3 items-end justify-between">
-            <div class="flex flex-wrap gap-3">
+          <div class="flex flex-wrap gap-3 items-end justify-between report-filter-row">
+            <div class="flex flex-wrap gap-3 report-filter-row">
               <div>
                 <label class="text-[10px] font-semibold text-gray-400 uppercase block mb-1.5">महीना</label>
                 <select id="rpM" onchange="dR()" class="viewer-allow border border-gray-200 rounded-xl px-4 py-2.5 text-sm bg-white shadow-sm">
@@ -914,7 +961,7 @@ button, a, label { min-height: 36px; }
 // 5. pendingWrites flush: correct path mapping
 // ============================================================
 
-var currentUserRole = 'admin';
+var currentUserRole = null; // null until logged in
 var autosaveTimerID = null;
 var fbPushTimerMap = {};
 var activeListeners = {};
@@ -1312,11 +1359,12 @@ function doLogout() {
     try { fbDB.ref(path).off('value', activeListeners[path]); } catch(e) {}
   }
   activeListeners = {};
+  showAbhayBtn(false); // Hide chatbot on logout
   document.getElementById('appPage').classList.add('hidden');
   document.getElementById('loginPage').classList.remove('hidden');
   document.getElementById('loginPass').value = '';
   document.getElementById('loginError').classList.add('hidden');
-  currentUserRole = 'admin';
+  currentUserRole = null; // null = logged out (not 'admin')
   document.body.style.overflow = '';
 }
 
@@ -2448,6 +2496,9 @@ function dR() {
   var tP = 0, tA = 0, tD = 0;
   for (var d = 1; d <= days; d++) {
     var dt = yr + '-' + String(mi + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+    // Skip Sundays (day=0) AND holidays
+    var dayOfWeek = new Date(dt + 'T12:00:00').getDay();
+    if (dayOfWeek === 0) continue;
     if (isHolidayDate(dt)) continue;
     var att = D.g('att_' + dt, []) || [];
     var activeIds = ss.map(function(s){ return s.id; });
@@ -2568,45 +2619,145 @@ var ABHAY_WORKER = 'https://kanchanschool.kanchanabhay72.workers.dev/';
 var abhayHistory = [];
 var abhayOpen = false;
 
-function toggleAbhay() {
-  abhayOpen = !abhayOpen;
-  var panel = document.getElementById('abhayPanel');
-  if (abhayOpen) {
-    panel.classList.remove('ai-closed'); panel.classList.add('ai-open');
-    safeCreateIcons(); // send icon render karo
-    document.getElementById('abhayInput').focus();
-  } else {
-    panel.classList.remove('ai-open'); panel.classList.add('ai-closed');
-  }
-}
 
 function getSchoolContext() {
   var students = D.g('students', []) || [];
   var active = students.filter(function(s){ return s.st === 'active'; });
   var today = new Date().toISOString().slice(0,10);
-  var todayAtt = D.g('att_' + today, []) || [];
-  var todayP = todayAtt.filter(function(a){ return a.st === 'present' && active.map(function(s){return s.id;}).indexOf(a.sid) !== -1; }).length;
-  var classCounts = {};
-  active.forEach(function(s){ classCounts[s.cls] = (classCounts[s.cls]||0)+1; });
-  var mdm = D.g('midday', []) || [];
   var curMonth = today.slice(0,7);
-  var mdmMonth = mdm.filter(function(m){ return m.date.startsWith(curMonth); });
+  var days = ['रविवार','सोमवार','मंगलवार','बुधवार','गुरुवार','शुक्रवार','शनिवार'];
+  var todayDay = days[new Date(today + 'T12:00:00').getDay()];
+
+  // --- Aaj ki attendance ---
+  var todayAtt = D.g('att_' + today, []) || [];
+  var activeIds = active.map(function(s){ return s.id; });
+  var todayRel = todayAtt.filter(function(a){ return activeIds.indexOf(a.sid) !== -1; });
+  var todayPresent = todayRel.filter(function(a){ return a.st === 'present'; });
+  var todayAbsent = todayRel.filter(function(a){ return a.st === 'absent'; });
+  var todayPresentNames = todayPresent.map(function(a){
+    var s = active.find(function(st){ return st.id === a.sid; });
+    return s ? s.name + '(Cl.' + s.cls + ')' : '';
+  }).filter(Boolean);
+  var todayAbsentNames = todayAbsent.map(function(a){
+    var s = active.find(function(st){ return st.id === a.sid; });
+    return s ? s.name + '(Cl.' + s.cls + ')' : '';
+  }).filter(Boolean);
+
+  // --- Class-wise breakdown ---
+  var classData = {};
+  [1,2,3,4,5].forEach(function(c){
+    var cls = active.filter(function(s){ return s.cls == c; });
+    var boys = cls.filter(function(s){ return s.gender === 'M'; }).length;
+    var girls = cls.filter(function(s){ return s.gender === 'F'; }).length;
+    classData['Class ' + c] = { total: cls.length, boys: boys, girls: girls,
+      names: cls.map(function(s){ return s.name + '(' + (s.gender==='F'?'♀':'♂') + ')'; }) };
+  });
+
+  // --- Is mahine ki attendance summary ---
+  var monthAttKeys = [];
+  for (var k in localStorage) {
+    if (k.startsWith('g_att_') && k.indexOf(curMonth) !== -1) monthAttKeys.push(k);
+  }
+  monthAttKeys.sort();
+  var monthAttSummary = [];
+  var lowAttStudents = {};
+  active.forEach(function(s){ lowAttStudents[s.id] = { name: s.name, cls: s.cls, present: 0, total: 0 }; });
+  monthAttKeys.forEach(function(key){
+    var dt = key.replace('g_att_','');
+    if (isHolidayDate(dt)) return;
+    var att = D.g('att_' + dt, []) || [];
+    var rel = att.filter(function(a){ return activeIds.indexOf(a.sid) !== -1; });
+    if (!rel.length) return;
+    var p = rel.filter(function(a){ return a.st === 'present'; }).length;
+    var dayName = days[new Date(dt + 'T12:00:00').getDay()];
+    monthAttSummary.push(dt + '(' + dayName + '): ' + p + '/' + active.length + ' present');
+    rel.forEach(function(a){
+      if (lowAttStudents[a.sid]) {
+        lowAttStudents[a.sid].total++;
+        if (a.st === 'present') lowAttStudents[a.sid].present++;
+      }
+    });
+  });
+  // Low attendance students (< 75%)
+  var lowAtt = Object.values(lowAttStudents).filter(function(s){
+    return s.total > 0 && (s.present / s.total) < 0.75;
+  }).map(function(s){
+    return s.name + '(Cl.' + s.cls + '): ' + s.present + '/' + s.total + ' = ' + Math.round(s.present/s.total*100) + '%';
+  });
+
+  // --- MDM is mahine ---
+  var mdm = D.g('midday', []) || [];
+  var mdmMonth = mdm.filter(function(m){
+    var d = new Date(m.date + 'T12:00:00').getDay();
+    return m.date.startsWith(curMonth) && d !== 0 && !isHolidayDate(m.date) && (m.count||0) > 0;
+  });
   var mdmTotal = mdmMonth.reduce(function(s,r){ return s+(r.total||0); }, 0);
-  var mdmDays = mdmMonth.length;
+  var mdmKids = mdmMonth.reduce(function(s,r){ return s+(r.count||0); }, 0);
+  var mdmGrain = mdmMonth.reduce(function(s,r){ return s+(r.quantity||0); }, 0);
+  var mdmDetails = mdmMonth.slice(-5).map(function(r){
+    return r.date + ': ' + r.count + ' bacche, ' + (r.quantity/1000).toFixed(2) + 'kg, ₹' + (r.total||0).toFixed(2);
+  });
+
+  // --- Holidays ---
   var holidays = D.g('holidays', []) || [];
+  var holidayReasons = D.g('holiday_reasons', {}) || {};
+  var holidayList = holidays.slice(-5).map(function(h){
+    return h + (holidayReasons[h] ? '(' + holidayReasons[h] + ')' : '');
+  });
+
+  // --- Teachers ---
   var teachers = D.g('teachers', []) || [];
+  var teacherList = teachers.map(function(t){ return t.name + ' - ' + t.role; });
+
+  // --- Finance ---
   var finance = D.g('finance', []) || [];
-  var financeTotal = finance.reduce(function(s,r){ return s+(r.amount||0); }, 0);
-  var schoolName = 'P.S. Gauri Bidoor';
-  return 'School: ' + schoolName + '\n' +
-    'Aaj ki date: ' + today + '\n' +
-    'Total active students: ' + active.length + '\n' +
-    'Aaj present: ' + todayP + ', Absent: ' + (active.length - todayP) + '\n' +
-    'Class-wise students: ' + JSON.stringify(classCounts) + '\n' +
-    'Teachers: ' + teachers.length + '\n' +
-    'Is mahine MDM records: ' + mdmDays + ' din, Total kharch: ₹' + mdmTotal.toFixed(2) + '\n' +
-    'Total holidays registered: ' + holidays.length + '\n' +
-    'Finance total: ₹' + financeTotal.toFixed(2) + '\n';
+  var finMonth = finance.filter(function(f){ return f.date.startsWith(curMonth); });
+  var finIncome = finMonth.filter(function(f){ return f.type === 'income'; }).reduce(function(s,f){ return s+f.amount; }, 0);
+  var finExpense = finMonth.filter(function(f){ return f.type === 'expense'; }).reduce(function(s,f){ return s+f.amount; }, 0);
+
+  return [
+    '=== P.S. GAURI BIDOOR — SCHOOL DATA ===',
+    'Aaj: ' + today + ' (' + todayDay + ')',
+    '',
+    '--- STUDENTS ---',
+    'Total active: ' + active.length + ' (Boys: ' + active.filter(function(s){return s.gender==='M';}).length + ', Girls: ' + active.filter(function(s){return s.gender==='F';}).length + ')',
+    'Class-wise: ' + [1,2,3,4,5].map(function(c){ var d=classData['Class '+c]; return 'Cl.'+c+': '+d.total+'(B:'+d.boys+' G:'+d.girls+')'; }).join(', '),
+    '',
+    '--- STUDENT NAMES (CLASS-WISE) ---',
+    [1,2,3,4,5].map(function(c){
+      var d = classData['Class ' + c];
+      return d.names.length ? 'Class ' + c + ': ' + d.names.join(', ') : '';
+    }).filter(Boolean).join('\n'),
+    '',
+    '--- AAJ KI ATTENDANCE (' + today + ') ---',
+    isHolidayDate(today) ? 'Aaj CHUTTI hai: ' + (holidayReasons[today] || '') :
+      (todayRel.length ?
+        'Present (' + todayPresent.length + '): ' + (todayPresentNames.slice(0,15).join(', ') || 'koi nahi') +
+        '\nAbsent (' + todayAbsent.length + '): ' + (todayAbsentNames.join(', ') || 'koi nahi') :
+        'Aaj attendance abhi nahi bhari gayi'),
+    '',
+    '--- IS MAHINE ATTENDANCE (' + curMonth + ') ---',
+    'Working days recorded: ' + monthAttSummary.length,
+    monthAttSummary.slice(-10).join('\n'),
+    '',
+    '--- LOW ATTENDANCE STUDENTS (<75%) ---',
+    lowAtt.length ? lowAtt.join('\n') : 'Sabki attendance 75%+ hai 👍',
+    '',
+    '--- MDM (MID-DAY MEAL) IS MAHINE ---',
+    'Valid days: ' + mdmMonth.length + ', Total bacche served: ' + mdmKids,
+    'Total grain: ' + (mdmGrain/1000).toFixed(2) + ' kg, Total kharch: ₹' + mdmTotal.toFixed(2),
+    'Recent entries:\n' + (mdmDetails.join('\n') || 'koi data nahi'),
+    '',
+    '--- TEACHERS (' + teachers.length + ') ---',
+    teacherList.join(', ') || 'koi teacher nahi',
+    '',
+    '--- FINANCE (IS MAHINE) ---',
+    'Income: ₹' + finIncome.toFixed(2) + ', Expense: ₹' + finExpense.toFixed(2) + ', Net: ₹' + (finIncome - finExpense).toFixed(2),
+    '',
+    '--- HOLIDAYS (' + holidays.length + ' total) ---',
+    'Recent: ' + (holidayList.join(', ') || 'koi nahi'),
+    '=== END OF DATA ==='
+  ].join('\n');
 }
 
 function abhayAsk(quickMsg) {
@@ -2614,37 +2765,84 @@ function abhayAsk(quickMsg) {
   var msg = quickMsg || (inp ? inp.value.trim() : '');
   if (!msg) return;
   if (inp) inp.value = '';
-  // Disable input during fetch to prevent double-send
   if (inp) inp.disabled = true;
   abhayAddMsg(msg, 'user');
   document.getElementById('abhaySuggestions').style.display = 'none';
   var typingId = 'typing_' + Date.now();
   abhayAddMsg('Soch raha hoon... 🤔', 'typing', typingId);
+
   var schoolCtx = getSchoolContext();
-  var systemPrompt = 'Tu Abhay hai — P.S. Gauri Bidoor school ka AI assistant. Tu Hinglish (Hindi + English mix) mein baat karta hai — friendly, helpful aur professional. School ke baare mein poori jaankari rakhta hai.\n\nSchool ka current data:\n' + schoolCtx + '\nHamesha short, clear aur helpful jawab do. Numbers aur stats clearly batao. Agar kuch nahi pata to honestly bolo.';
-  // FIX: History push karo response aane ke baad, pehle nahi
+
+  var systemPrompt = [
+    'Tu "Abhay" hai — P.S. Gauri Bidoor, Lucknow (UP) ka dedicated AI School Assistant.',
+    '',
+    'TERI PERSONALITY:',
+    '- Hinglish mein baat kar (Hindi + English natural mix)',
+    '- Friendly, smart aur professional tone',
+    '- School staff jaisa — caring, helpful, accurate',
+    '- Emojis ka limited use kar for clarity',
+    '',
+    'TERI CAPABILITIES:',
+    '- Neeche diya gaya POORA school data tujhe pata hai',
+    '- Attendance analysis kar sakta hai — kaun absent tha, trend kya hai',
+    '- MDM calculations — grain, cost, bacche',
+    '- Student details — naam, class, parents, ID',
+    '- Finance summary',
+    '- Holiday info',
+    '- Teacher info',
+    '',
+    'JAWAB DENE KE RULES:',
+    '- Hamesha DATA se jawab de — guess mat kar',
+    '- Numbers clearly highlight kar',
+    '- Agar koi student ka naam pooche toh exact naam bata',
+    '- Absent students ki list maange toh class-wise dena',
+    '- Comparison questions pe percentage ke saath jawab dena',
+    '- Short rakho unless detail maanga ho',
+    '- Agar data nahi hai toh honestly bol do',
+    '',
+    '=== LIVE SCHOOL DATA ===',
+    schoolCtx,
+    '=== END DATA ==='
+  ].join('\n');
+
+  // Build proper messages array for Grok
+  var messages = [];
+  // Add conversation history
+  abhayHistory.slice(-10).forEach(function(h) {
+    messages.push({
+      role: h.role === 'model' ? 'assistant' : 'user',
+      content: h.role === 'model' ? h.parts[0].text : h.parts[0].text
+    });
+  });
+  // Add current user message
+  messages.push({ role: 'user', content: msg });
+
   fetch(ABHAY_WORKER, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      message: systemPrompt + '\n\nUser: ' + msg, // system context message ke saath bhejo
-      history: abhayHistory.slice(-8),
-      systemInstruction: systemPrompt
+      message: msg,
+      systemPrompt: systemPrompt,
+      systemInstruction: systemPrompt,
+      messages: messages,
+      history: abhayHistory.slice(-10),
+      context: schoolCtx
     })
   })
-  .then(function(r){ return r.json(); })
+  .then(function(r) { return r.json(); })
   .then(function(data) {
     var el = document.getElementById(typingId);
     if (el) el.remove();
     if (inp) inp.disabled = false;
-    var reply = data.text || data.error || 'Kuch gadbad ho gayi, dobara try karo!';
-    // FIX: Dono history entries saath push karo after success
+    var reply = data.text || data.response || data.reply || data.content ||
+      (data.choices && data.choices[0] && (data.choices[0].message ? data.choices[0].message.content : data.choices[0].text)) ||
+      data.error || 'Kuch gadbad ho gayi, dobara try karo!';
     abhayHistory.push({ role: 'user', parts: [{ text: msg }] });
     abhayHistory.push({ role: 'model', parts: [{ text: reply }] });
     abhayAddMsg(reply, 'bot');
     if (inp) inp.focus();
   })
-  .catch(function() {
+  .catch(function(err) {
     var el = document.getElementById(typingId);
     if (el) el.remove();
     if (inp) inp.disabled = false;
@@ -2666,7 +2864,29 @@ function abhayAddMsg(text, type, id) {
 // Show/hide Abhay button based on login
 function showAbhayBtn(show) {
   var btn = document.getElementById('abhayBtn');
+  var panel = document.getElementById('abhayPanel');
   if (btn) { btn.classList.toggle('hidden-btn', !show); }
+  // If hiding (logout), also close panel
+  if (!show && panel) {
+    panel.classList.remove('ai-open');
+    panel.classList.add('ai-closed');
+  }
+}
+
+function toggleAbhay() {
+  // Security: block access if not logged in
+  if (!currentUserRole || document.getElementById('appPage').classList.contains('hidden')) return;
+  var p = document.getElementById('abhayPanel');
+  if (!p) return;
+  var isOpen = p.classList.contains('ai-open');
+  p.classList.toggle('ai-open', !isOpen);
+  p.classList.toggle('ai-closed', isOpen);
+  if (!isOpen) {
+    setTimeout(function() {
+      var inp = document.getElementById('abhayInput');
+      if (inp) inp.focus();
+    }, 200);
+  }
 }
 
 // ===== EXCEL / PDF EXPORT =====
@@ -2918,10 +3138,10 @@ document.addEventListener('keydown', function(e) {
     <div class="ai-msg bot">Namaste! 👋 Main <b>Abhay</b> hoon — aapka school AI assistant.<br><br>School ki koi bhi details poochho — attendance, students, MDM, reports — sab bataunga! 😊</div>
   </div>
   <div class="ai-suggestions" id="abhaySuggestions">
-    <span class="ai-chip" onclick="abhayAsk('Aaj kitne bacche present hain?')">📊 Aaj ki attendance</span>
-    <span class="ai-chip" onclick="abhayAsk('Total students kitne hain?')">👥 Total students</span>
-    <span class="ai-chip" onclick="abhayAsk('Is mahine ka MDM total kya hai?')">🍱 MDM summary</span>
-    <span class="ai-chip" onclick="abhayAsk('Sabse kam attendance kis class ki hai?')">📉 Low attendance</span>
+    <span class="ai-chip" onclick="abhayAsk('Aaj kaun kaun absent hai? Class-wise bato.')">📋 Aaj absent list</span>
+    <span class="ai-chip" onclick="abhayAsk('Is mahine sabse kam attendance kis student ki hai?')">📉 Low attendance</span>
+    <span class="ai-chip" onclick="abhayAsk('Is mahine MDM ka total kharch aur grain kitna hua?')">🍱 MDM summary</span>
+    <span class="ai-chip" onclick="abhayAsk('Class 3 ke sabhi students ke naam batao aur unki attendance percentage.')">👥 Class 3 details</span>
   </div>
   <div class="ai-input-row">
     <input id="abhayInput" class="ai-input" placeholder="Kuch bhi poochho..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" onkeydown="if(event.key==='Enter')abhayAsk()">
