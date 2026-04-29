@@ -312,6 +312,10 @@ button, a, label { min-height: 36px; }
 .ai-input-row { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid #f1f5f9; background: #fafafa; }
 .ai-input { flex: 1; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 8px 12px; font-size: 13px; outline: none; background: white; }
 .ai-input:focus { border-color: #14b8a6; }
+.ai-input[type="search"]::-webkit-search-decoration,
+.ai-input[type="search"]::-webkit-search-cancel-button,
+.ai-input[type="search"]::-webkit-search-results-button,
+.ai-input[type="search"]::-webkit-search-results-decoration { display: none; -webkit-appearance: none; }
 .ai-send { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg,#0f766e,#14b8a6); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: white; flex-shrink: 0; transition: all .2s; }
 .ai-send:hover { transform: scale(1.08); }
 
@@ -1188,25 +1192,34 @@ function startRealtimeListeners() {
     var fbAttData = snap.val();
     if (!fbAttData || typeof fbAttData !== 'object') return;
 
-    // MERGE strategy: Firebase data is source of truth
-    // Only update localStorage keys that exist in Firebase
-    // Do NOT delete local keys that aren't in Firebase (offline data)
+    // Firebase is source of truth — update all dates from Firebase
+    var updated = false;
     Object.keys(fbAttData).forEach(function(dateKey) {
       var fbDayData = fbAttData[dateKey];
-      if (fbDayData && Array.isArray(fbDayData) && fbDayData.length > 0) {
-        // Only overwrite local if Firebase has actual data for this date
-        D.s('att_' + dateKey, fbDayData);
+      // Accept any non-null array (even empty means "date was cleared")
+      if (fbDayData && Array.isArray(fbDayData)) {
+        var localData = D.g('att_' + dateKey, null);
+        var localStr = JSON.stringify(localData);
+        var fbStr = JSON.stringify(fbDayData);
+        // Only write + refresh if data actually changed
+        if (localStr !== fbStr) {
+          D.s('att_' + dateKey, fbDayData);
+          updated = true;
+        }
       }
     });
 
-    // Refresh current tab
-    refreshCurrentTab();
+    if (!updated) return; // No change — skip re-render
 
-    // Also refresh MDM if on midday tab
-    var activeTab = document.querySelector('.sl.active');
-    if (activeTab && activeTab.getAttribute('data-t') === 'midday') {
-      calcMidday();
-    }
+    // Use setTimeout(0) to ensure localStorage writes are flushed before re-render
+    setTimeout(function() {
+      refreshCurrentTab();
+      // Also refresh MDM count if on midday tab
+      var activeTab = document.querySelector('.sl.active');
+      if (activeTab && activeTab.getAttribute('data-t') === 'midday') {
+        calcMidday();
+      }
+    }, 0);
   };
 
   fbDB.ref(attPath).on('value', attHandler, function(err) {
@@ -1934,6 +1947,23 @@ function dA2() {
     document.getElementById('aEm').classList.add('hidden');
     return;
   }
+  // If Firebase connected, silently pull this date's latest data before render
+  if (fbDB && fbConnected) {
+    fbDB.ref('data/attendance/' + dt).once('value').then(function(snap) {
+      var fbVal = snap.val();
+      if (fbVal && Array.isArray(fbVal) && fbVal.length > 0) {
+        D.s('att_' + dt, fbVal); // Update local with Firebase
+      }
+      renderAttTable(cls, dt);
+    }).catch(function() {
+      renderAttTable(cls, dt); // Fallback to local on error
+    });
+  } else {
+    renderAttTable(cls, dt);
+  }
+}
+
+function renderAttTable(cls, dt) {
   var ss = (D.g('students', []) || []).filter(function(s) { return s.cls == cls && s.st === 'active'; });
   ss.sort(function(a, b) { return (a.name || '').localeCompare(b.name || ''); });
   var saved = D.g('att_' + dt, []) || [];
@@ -3201,10 +3231,12 @@ document.addEventListener('keydown', function(e) {
     <span class="ai-chip" onclick="abhayAsk('Is mahine MDM ka total kharch aur grain kitna hua?')">🍱 MDM summary</span>
     <span class="ai-chip" onclick="abhayAsk('Class 3 ke sabhi students ke naam batao aur unki attendance percentage.')">👥 Class 3 details</span>
   </div>
-  <div class="ai-input-row">
-    <input id="abhayInput" class="ai-input" placeholder="Kuch bhi poochho..." autocomplete="new-password" autocorrect="off" autocapitalize="off" autocapitalize="none" spellcheck="false" role="searchbox" onkeydown="if(event.key==='Enter')abhayAsk()">
-    <button class="ai-send" onclick="abhayAsk()"><i data-lucide="send" class="w-4 h-4"></i></button>
-  </div>
+  <form class="ai-input-row" autocomplete="off" onsubmit="abhayAsk(); return false;">
+    <input id="abhayInput" type="search" class="ai-input" placeholder="Kuch bhi poochho..."
+      autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+      onkeydown="if(event.key==='Enter'){abhayAsk();return false;}">
+    <button type="button" class="ai-send" onclick="abhayAsk()"><i data-lucide="send" class="w-4 h-4"></i></button>
+  </form>
 </div>
 
 </body>
