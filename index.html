@@ -1151,14 +1151,17 @@ function fbListenOnce(path, localKey, onUpdate) {
     try { fbDB.ref(path).off('value', activeListeners[path]); } catch(e) {}
     delete activeListeners[path];
   }
+  var ARRAY_KEYS = ['students','teachers','finance','midday','holidays'];
   var handler = function(snap) {
     var val = snap.val();
-    // Accept null too — means data was deleted on Firebase
-    if (val !== undefined) {
-      if (val !== null) {
-        D.s(localKey, val);
+    if (val !== undefined && val !== null) {
+      // Firebase arrays ko objects mein store karta hai — convert back if needed
+      var stored = val;
+      if (ARRAY_KEYS.indexOf(localKey) !== -1 && !Array.isArray(val) && typeof val === 'object') {
+        stored = fbValToArray(val);
       }
-      if (onUpdate) onUpdate(val);
+      D.s(localKey, stored);
+      if (onUpdate) onUpdate(stored);
     }
   };
   fbDB.ref(path).on('value', handler, function(err) {
@@ -1195,13 +1198,11 @@ function startRealtimeListeners() {
     // Firebase is source of truth — update all dates from Firebase
     var updated = false;
     Object.keys(fbAttData).forEach(function(dateKey) {
-      var fbDayData = fbAttData[dateKey];
-      // Accept any non-null array (even empty means "date was cleared")
-      if (fbDayData && Array.isArray(fbDayData)) {
+      var fbDayData = fbValToArray(fbAttData[dateKey]); // Handle object/array both
+      if (fbDayData.length > 0) {
         var localData = D.g('att_' + dateKey, null);
         var localStr = JSON.stringify(localData);
         var fbStr = JSON.stringify(fbDayData);
-        // Only write + refresh if data actually changed
         if (localStr !== fbStr) {
           D.s('att_' + dateKey, fbDayData);
           updated = true;
@@ -1246,9 +1247,8 @@ function manualSync() {
     var fbAtt = snap.val();
     if (fbAtt && typeof fbAtt === 'object') {
       Object.keys(fbAtt).forEach(function(dateKey) {
-        if (fbAtt[dateKey] && Array.isArray(fbAtt[dateKey]) && fbAtt[dateKey].length > 0) {
-          D.s('att_' + dateKey, fbAtt[dateKey]);
-        }
+        var arr = fbValToArray(fbAtt[dateKey]); // Fix: handle Firebase object/array
+        if (arr.length > 0) D.s('att_' + dateKey, arr);
       });
     }
 
@@ -1300,7 +1300,8 @@ function syncAndRefreshReport() {
     var val = snap.val();
     if (val && typeof val === 'object') {
       Object.keys(val).forEach(function(dateKey) {
-        D.s('att_' + dateKey, val[dateKey]);
+        var arr = fbValToArray(val[dateKey]); // Fix: handle Firebase object/array
+        if (arr.length > 0) D.s('att_' + dateKey, arr);
       });
     }
     setSyncUI('ok');
@@ -1313,7 +1314,19 @@ function syncAndRefreshReport() {
   });
 }
 
-// ===== STORAGE USAGE =====
+// ===== FIREBASE ARRAY HELPER =====
+// Firebase arrays ko objects mein convert karta hai: [a,b] -> {"0":a,"1":b}
+// Yeh helper dono formats handle karta hai
+function fbValToArray(val) {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'object') {
+    // Firebase numeric-keyed object to array
+    var keys = Object.keys(val).map(Number).sort(function(a,b){return a-b;});
+    return keys.map(function(k){ return val[k]; }).filter(function(v){ return v != null; });
+  }
+  return [];
+}
 function updateStorageUsage() {
   try {
     var total = 0;
@@ -1950,13 +1963,13 @@ function dA2() {
   // If Firebase connected, silently pull this date's latest data before render
   if (fbDB && fbConnected) {
     fbDB.ref('data/attendance/' + dt).once('value').then(function(snap) {
-      var fbVal = snap.val();
-      if (fbVal && Array.isArray(fbVal) && fbVal.length > 0) {
-        D.s('att_' + dt, fbVal); // Update local with Firebase
+      var fbVal = fbValToArray(snap.val()); // Firebase array/object → JS array
+      if (fbVal.length > 0) {
+        D.s('att_' + dt, fbVal);
       }
       renderAttTable(cls, dt);
     }).catch(function() {
-      renderAttTable(cls, dt); // Fallback to local on error
+      renderAttTable(cls, dt);
     });
   } else {
     renderAttTable(cls, dt);
@@ -2121,10 +2134,8 @@ function initMidday() {
   if (dtEl && dtEl.value && fbDB && fbConnected) {
     var dt = dtEl.value;
     fbDB.ref('data/attendance/' + dt).once('value').then(function(snap) {
-      var fbAtt = snap.val();
-      if (fbAtt && Array.isArray(fbAtt) && fbAtt.length > 0) {
-        D.s('att_' + dt, fbAtt);
-      }
+      var fbAtt = fbValToArray(snap.val()); // Fix: handle Firebase object/array
+      if (fbAtt.length > 0) D.s('att_' + dt, fbAtt);
       calcMidday();
       renderMiddayMonth();
       calculateMonthlyGrain();
@@ -2146,10 +2157,8 @@ function onMiddayDateChange() {
   var dt = dtEl.value;
   if (fbDB && fbConnected) {
     fbDB.ref('data/attendance/' + dt).once('value').then(function(snap) {
-      var fbAtt = snap.val();
-      if (fbAtt && Array.isArray(fbAtt) && fbAtt.length > 0) {
-        D.s('att_' + dt, fbAtt);
-      }
+      var fbAtt = fbValToArray(snap.val()); // Fix: handle Firebase object/array
+      if (fbAtt.length > 0) D.s('att_' + dt, fbAtt);
       calcMidday();
     }).catch(function() { calcMidday(); });
   } else {
