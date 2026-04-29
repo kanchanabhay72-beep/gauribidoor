@@ -50,7 +50,6 @@ var FB_CONFIG = {
 var fbDB = null;
 var fbConnected = false;
 var pendingWrites = {};
-var fbPushTimers = {};
 
 try {
   if (typeof firebase !== 'undefined') {
@@ -98,6 +97,9 @@ body { background: #f1f5f9; min-height: 100%; overscroll-behavior: none; }
   background-image:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
   pointer-events:none;
 }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.animate-spin { animation: spin 1s linear infinite; }
 
 @keyframes float { 0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-10px) rotate(2deg)} }
 @keyframes pulse-glow { 0%,100%{box-shadow:0 0 20px rgba(20,184,166,.3),0 0 40px rgba(20,184,166,.1)} 50%{box-shadow:0 0 30px rgba(20,184,166,.5),0 0 60px rgba(20,184,166,.2)} }
@@ -667,7 +669,7 @@ button, a, label { min-height: 36px; }
               <div class="p-3 bg-amber-50 rounded-xl border border-amber-200">
                 <p class="text-[11px] text-amber-600">💰 भोजन लागत ₹/बच्चा:</p>
                 <div class="flex items-center gap-2 mt-1">
-                  <input id="mMealCostRate" type="number" min="0" step="0.5" placeholder="Rate" class="border border-amber-300 rounded-lg px-3 py-1.5 text-lg font-bold text-amber-800 w-24 text-center bg-white shadow-sm" oninput="localStorage.setItem('g_mdm_rate',this.value);calcMidday()">
+                  <input id="mMealCostRate" type="number" min="0" step="0.5" placeholder="Rate" class="border border-amber-300 rounded-lg px-3 py-1.5 text-lg font-bold text-amber-800 w-24 text-center bg-white shadow-sm" oninput="D.s('mdm_rate',this.value);calcMidday()">
                   <span class="text-sm text-gray-500">₹/बच्चा</span>
                 </div>
               </div>
@@ -865,12 +867,12 @@ button, a, label { min-height: 36px; }
                 </select>
               </div>
             </div>
-            <!-- FIX: Sync button in report tab for fresh Firebase data -->
+            <!-- Sync button in report tab for fresh Firebase data -->
             <div class="flex gap-2 flex-wrap">
               <button onclick="exportAttendanceExcel(getReportMonthVal())" class="export-btn export-excel"><i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>Excel</button>
               <button onclick="exportAttendancePDF(getReportMonthVal())" class="export-btn export-pdf"><i data-lucide="file-text" class="w-3.5 h-3.5"></i>PDF</button>
-              <button onclick="syncAndRefreshReport()" class="bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-700 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all">
-                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>Firebase से Refresh
+              <button onclick="syncAndRefreshReport()" class="bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-700 px-4 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 transition-all" title="Firebase से ताज़ा डेटा लेकर रिपोर्ट अपडेट करें">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>Refresh
               </button>
             </div>
           </div>
@@ -956,13 +958,16 @@ button, a, label { min-height: 36px; }
 
 <script>
 // ============================================================
-// P.S. GAURI BIDOOR v7.6
-// FIXES:
-// 1. fbPush: correct Firebase path for att_ keys
-// 2. startRealtimeListeners: pulls ALL attendance from Firebase on login
-// 3. Report tab: year selector added, works across years
-// 4. Report tab: "Firebase से Refresh" button to pull latest data
-// 5. pendingWrites flush: correct path mapping
+// P.S. GAURI BIDOOR v7.8 — SYNC FIX BUILD
+// CRITICAL FIXES APPLIED:
+// 1. todayStr() — IST timezone fix (was returning UTC date)
+// 2. Attendance sync — removed stale localStr!=fbStr comparison
+//    Firebase is now ALWAYS source of truth (fixes PC vs Mobile mismatch)
+// 3. manualSync() — pull-only from Firebase, never overwrites Firebase
+// 4. Report tab — auto-pulls from Firebase on open (syncAndRefreshReport)
+// 5. MDM rate — uses D.s() wrapper instead of raw localStorage
+// 6. esc() — full XSS sanitization (& < > ' " all escaped)
+// 7. fbPushTimers dead variable removed
 // ============================================================
 
 var currentUserRole = null; // null until logged in
@@ -1014,8 +1019,8 @@ function getFullMonthYear(val) {
   var p = val.split('-');
   return MN[parseInt(p[1]) - 1] + ' ' + p[0];
 }
-function getCurrentMonthStr() { return new Date().toISOString().substring(0, 7); }
-function todayStr() { return new Date().toISOString().split('T')[0]; }
+function getCurrentMonthStr() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'); }
+function todayStr() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
 
 // ===== INIT DATA =====
 (function initData() {
@@ -1195,27 +1200,18 @@ function startRealtimeListeners() {
     var fbAttData = snap.val();
     if (!fbAttData || typeof fbAttData !== 'object') return;
 
-    // Firebase is source of truth — update all dates from Firebase
-    var updated = false;
+    // Firebase is always source of truth — always overwrite localStorage
+    // CRITICAL FIX: removed stale localStr !== fbStr comparison that caused PC vs Mobile mismatch
     Object.keys(fbAttData).forEach(function(dateKey) {
-      var fbDayData = fbValToArray(fbAttData[dateKey]); // Handle object/array both
+      var fbDayData = fbValToArray(fbAttData[dateKey]);
       if (fbDayData.length > 0) {
-        var localData = D.g('att_' + dateKey, null);
-        var localStr = JSON.stringify(localData);
-        var fbStr = JSON.stringify(fbDayData);
-        if (localStr !== fbStr) {
-          D.s('att_' + dateKey, fbDayData);
-          updated = true;
-        }
+        D.s('att_' + dateKey, fbDayData);
       }
     });
 
-    if (!updated) return; // No change — skip re-render
-
-    // Use setTimeout(0) to ensure localStorage writes are flushed before re-render
+    // Refresh UI after write
     setTimeout(function() {
       refreshCurrentTab();
-      // Also refresh MDM count if on midday tab
       var activeTab = document.querySelector('.sl.active');
       if (activeTab && activeTab.getAttribute('data-t') === 'midday') {
         calcMidday();
@@ -1236,57 +1232,44 @@ function listenAttDate(dt) {
   // No-op: kept for compatibility
 }
 
-// ===== MANUAL SYNC — PULL FIRST, THEN PUSH LOCAL CHANGES =====
+// ===== MANUAL SYNC — PULL FROM FIREBASE (Firebase is source of truth) =====
 function manualSync() {
   if (!fbDB) { toast('Firebase नहीं — internet check करें', 0); return; }
   if (!fbConnected) { toast('⚠️ Internet नहीं है अभी', 0); return; }
   setSyncUI('wait');
 
-  // Step 1: Pull latest attendance from Firebase (source of truth)
-  fbDB.ref('data/attendance').once('value').then(function(snap) {
-    var fbAtt = snap.val();
-    if (fbAtt && typeof fbAtt === 'object') {
-      Object.keys(fbAtt).forEach(function(dateKey) {
-        var arr = fbValToArray(fbAtt[dateKey]); // Fix: handle Firebase object/array
+  // Pull ALL data from Firebase — Firebase is always source of truth
+  // CRITICAL FIX: Never overwrite Firebase with local; only pull FROM Firebase
+  fbDB.ref('data').once('value').then(function(snap) {
+    var fbData = snap.val();
+    if (!fbData) { setSyncUI('ok'); toast('ℹ️ Firebase पर कोई डेटा नहीं', 0); return; }
+
+    // Restore static data
+    var staticKeys = ['students','teachers','finance','midday','holidays','holiday_reasons','pass','viewer_pass'];
+    staticKeys.forEach(function(key) {
+      if (fbData[key] !== undefined && fbData[key] !== null) {
+        var ARRAY_KEYS = ['students','teachers','finance','midday','holidays'];
+        var val = fbData[key];
+        if (ARRAY_KEYS.indexOf(key) !== -1 && !Array.isArray(val) && typeof val === 'object') {
+          val = fbValToArray(val);
+        }
+        D.s(key, val);
+      }
+    });
+
+    // Restore attendance — always overwrite from Firebase
+    if (fbData.attendance && typeof fbData.attendance === 'object') {
+      Object.keys(fbData.attendance).forEach(function(dateKey) {
+        var arr = fbValToArray(fbData.attendance[dateKey]);
         if (arr.length > 0) D.s('att_' + dateKey, arr);
       });
     }
 
-    // Step 2: Build complete data payload (local + pulled FB att merged)
-    var attData = {};
-    for (var k in localStorage) {
-      if (k.startsWith('g_att_')) {
-        try {
-          var dateKey = k.replace('g_att_', '');
-          var localAtt = JSON.parse(localStorage.getItem(k));
-          if (localAtt && localAtt.length > 0) {
-            attData[dateKey] = localAtt;
-          }
-        } catch(e) {}
-      }
-    }
-
-    var data = {
-      students: D.g('students', []),
-      teachers: D.g('teachers', []),
-      pass: D.g('pass', 'gauri'),
-      viewer_pass: D.g('viewer_pass', 'viewer'),
-      finance: D.g('finance', []),
-      midday: D.g('midday', []),
-      holidays: D.g('holidays', []),
-      holiday_reasons: D.g('holiday_reasons', {}),
-      attendance: attData
-    };
-
-    // Step 3: Push merged data back to Firebase
-    return fbDB.ref('data').set(data);
-  })
-  .then(function() {
     setSyncUI('ok');
-    toast('✅ Cloud sync हो गया!');
+    toast('✅ Firebase से सब कुछ sync हो गया!');
     refreshCurrentTab();
-  })
-  .catch(function(e) {
+    dDash();
+  }).catch(function(e) {
     setSyncUI('err');
     toast('❌ Sync failed: ' + e.message, 0);
   });
@@ -1294,19 +1277,21 @@ function manualSync() {
 
 // FIX: Report tab - pull fresh attendance from Firebase then render
 function syncAndRefreshReport() {
-  if (!fbDB) { dR(); return; }
+  if (!fbDB || !fbConnected) { dR(); return; }
   setSyncUI('wait');
+  // Show loading state in report
+  var barsEl = document.getElementById('rpBars');
+  if (barsEl) barsEl.innerHTML = '<div class="text-center py-8 text-gray-400 text-sm"><div class="inline-block w-5 h-5 border-2 border-teal-400 border-t-transparent rounded-full animate-spin mr-2"></div>Firebase से data load हो रहा है...</div>';
   fbDB.ref('data/attendance').once('value').then(function(snap) {
     var val = snap.val();
     if (val && typeof val === 'object') {
       Object.keys(val).forEach(function(dateKey) {
-        var arr = fbValToArray(val[dateKey]); // Fix: handle Firebase object/array
+        var arr = fbValToArray(val[dateKey]);
         if (arr.length > 0) D.s('att_' + dateKey, arr);
       });
     }
     setSyncUI('ok');
     dR();
-    toast('✅ रिपोर्ट ताज़ा हो गई!');
   }).catch(function(e) {
     setSyncUI('err');
     dR();
@@ -1513,7 +1498,7 @@ function go(t) {
     case 'dashboard': dDash(); break;
     case 'students': dS2(); break;
     case 'attendance': dA2(); break;
-    case 'report': dR(); break;
+    case 'report': syncAndRefreshReport(); break;
     case 'midday': initMidday(); break;
     case 'finance': initFinance(); break;
     case 'teachers': renderTeachers(); break;
@@ -1843,7 +1828,15 @@ function openSM(s) {
     '<button type="button" onclick="closeM()" class="flex-1 bg-gray-100 hover:bg-gray-200 py-3 rounded-xl text-gray-600 text-sm">रद्द</button>' +
     '<button type="button" onclick="saveS(' + (s ? s.id : 0) + ')" class="flex-1 bg-gradient-to-r from-teal-600 to-teal-500 text-white py-3 rounded-xl font-semibold text-sm shadow-lg">सेव</button></div></div>');
 }
-function esc(str) { return String(str).replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function esc(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
 function switchModalTab(tabName) {
   document.querySelectorAll('#mBody .modal-tab').forEach(function(t) { t.classList.remove('active'); });
   document.querySelectorAll('#mBody .modal-tab-content').forEach(function(c) { c.classList.remove('active'); });
@@ -2001,7 +1994,7 @@ function renderAttTable(cls, dt) {
     var isAbsent = a && a.st === 'absent';
     return '<tr class="tr border-b border-gray-50 tr-enter" style="animation-delay:' + (i * 0.03) + 's">' +
       '<td class="px-4 py-3 text-gray-400 text-xs">' + (i + 1) + '</td>' +
-      '<td class="px-4 py-3 font-medium text-sm">' + s.name + '</td>' +
+      '<td class="px-4 py-3 font-medium text-sm">' + esc(s.name) + '</td>' +
       '<td class="px-4 py-3 text-center">' +
         '<label class="att-radio-label ' + (isPresent ? 'rp-on' : '') + ' ' + (currentUserRole === 'viewer' ? 'opacity-50' : '') + '" id="lp' + s.id + '" onclick="' + (currentUserRole === 'admin' ? 'attToggle(' + s.id + ',\'present\')' : '') + '">' +
           '<input type="radio" name="a' + s.id + '" value="present" ' + (isPresent ? 'checked' : '') + ' ' + dis + ' class="sr-only">' +
@@ -2127,7 +2120,7 @@ function initMidday() {
   // FIX: Rate restore karo
   var rateEl = document.getElementById('mMealCostRate');
   if (rateEl && !rateEl.value) {
-    var savedRate = localStorage.getItem('g_mdm_rate');
+    var savedRate = D.g('mdm_rate', null);
     if (savedRate) rateEl.value = savedRate;
   }
   var dtEl = document.getElementById('mDate');
@@ -2233,10 +2226,10 @@ function _renderMiddayCalc(dt, day, cnt) {
   document.getElementById('mCount').textContent = cnt;
   document.getElementById('mQty').textContent = qty + ' g';
 
-  // Rate ko localStorage se restore karo
+  // Rate ko D.g se restore karo
   var rateEl = document.getElementById('mMealCostRate');
   if (rateEl && !rateEl.value) {
-    var savedRate = localStorage.getItem('g_mdm_rate');
+    var savedRate = D.g('mdm_rate', null);
     if (savedRate) rateEl.value = savedRate;
   }
   var rate = rateEl ? (parseFloat(rateEl.value) || 0) : 0;
@@ -2659,7 +2652,7 @@ function expData() {
     pass: D.g('pass', 'gauri'),
     viewer_pass: D.g('viewer_pass', 'viewer'),
     exported: new Date().toISOString(),
-    version: '7.7',
+    version: '7.8',
     attendance: {}
   };
   for (var k in localStorage) {
@@ -2670,7 +2663,7 @@ function expData() {
   var blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'ps_gauri_v77_' + todayStr() + '.json';
+  a.download = 'ps_gauri_v78_' + todayStr() + '.json';
   a.click();
   setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
   toast('✅ Export हो गया!');
@@ -2953,7 +2946,11 @@ function abhayAddMsg(text, type, id) {
   var div = document.createElement('div');
   div.className = 'ai-msg ' + type;
   if (id) div.id = id;
-  div.innerHTML = text.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+  // Safe rendering: escape first, then allow only controlled formatting
+  var safe = esc(text)
+    .replace(/\n/g, '<br>')
+    .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+  div.innerHTML = safe;
   msgs.appendChild(div);
   msgs.scrollTop = msgs.scrollHeight;
 }
