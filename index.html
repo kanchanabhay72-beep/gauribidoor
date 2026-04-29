@@ -1112,50 +1112,62 @@ function setSyncUI(s) {
 // ===== FIREBASE PUSH (FIX: correct path for att_ keys) =====
 function fbPush(key, val) {
   if (!fbDB) return;
+  // Clear any pending debounce for this key
   if (fbPushTimerMap[key]) clearTimeout(fbPushTimerMap[key]);
   fbPushTimerMap[key] = setTimeout(function() {
     var path;
     if (key.indexOf('att_') === 0) {
-      // FIX: attendance goes under data/attendance/{date}
       path = 'data/attendance/' + key.replace('att_', '');
     } else {
       path = 'data/' + key;
     }
     var ref = fbDB.ref(path);
+    var writeVal = (val !== null && val !== undefined) ? val : null;
     if (fbConnected) {
-      var p = (val !== null && val !== undefined) ? ref.set(val) : ref.remove();
-      p.catch(function(e) {
+      setSyncUI('wait');
+      var p = (writeVal !== null) ? ref.set(writeVal) : ref.remove();
+      p.then(function() {
+        setSyncUI('ok');
+      }).catch(function(e) {
         console.warn('fbPush failed:', key, e.message);
-        pendingWrites[key] = val;
+        setSyncUI('err');
+        pendingWrites[key] = val; // Queue for retry on reconnect
       });
     } else {
-      pendingWrites[key] = val;
+      pendingWrites[key] = val; // Offline queue
     }
-  }, 1500);
+  }, 800); // Reduced from 1500ms for faster sync
 }
 
 // ===== FIREBASE LISTENERS =====
 function fbListenOnce(path, localKey, onUpdate) {
   if (!fbDB) return;
+  // Remove existing listener before re-attaching
   if (activeListeners[path]) {
     try { fbDB.ref(path).off('value', activeListeners[path]); } catch(e) {}
+    delete activeListeners[path];
   }
   var handler = function(snap) {
     var val = snap.val();
-    if (val !== null && val !== undefined) {
-      D.s(localKey, val);
+    // Accept null too — means data was deleted on Firebase
+    if (val !== undefined) {
+      if (val !== null) {
+        D.s(localKey, val);
+      }
       if (onUpdate) onUpdate(val);
     }
   };
   fbDB.ref(path).on('value', handler, function(err) {
-    console.warn('fbListen error:', path, err.message);
+    console.warn('fbListen error:', path, err ? err.message : '');
   });
   activeListeners[path] = handler;
 }
 
-// FIX: Pull ALL attendance data from Firebase on login
+// ===== REALTIME LISTENERS — FIXED ARCHITECTURE =====
 function startRealtimeListeners() {
   if (!fbDB) return;
+
+  // Static data listeners (students, teachers, finance, etc.)
   var staticKeys = ['students','teachers','finance','midday','holidays','holiday_reasons'];
   staticKeys.forEach(function(key) {
     fbListenOnce('data/' + key, key, function() { refreshCurrentTab(); });
@@ -1163,61 +1175,108 @@ function startRealtimeListeners() {
   fbListenOnce('data/pass', 'pass', null);
   fbListenOnce('data/viewer_pass', 'viewer_pass', null);
 
-  // FIX: Listen to entire attendance node, not just today
-  // This ensures report tab gets ALL historical attendance from Firebase
+  // ===== ATTENDANCE SYNC — FIXED =====
+  // Problem was: bulk listener on 'data/attendance' caused race conditions
+  // Fix: Listen to entire attendance node but with proper merge (not overwrite)
   var attPath = 'data/attendance';
   if (activeListeners[attPath]) {
     try { fbDB.ref(attPath).off('value', activeListeners[attPath]); } catch(e) {}
+    delete activeListeners[attPath];
   }
+
   var attHandler = function(snap) {
-    var val = snap.val();
-    if (val && typeof val === 'object') {
-      Object.keys(val).forEach(function(dateKey) {
-        D.s('att_' + dateKey, val[dateKey]);
-      });
-      refreshCurrentTab();
-      // FIX: Midday tab pe bhi count update karo agar midday active hai
-      var activeTab = document.querySelector('.sl.active');
-      if (activeTab && activeTab.getAttribute('data-t') === 'midday') {
-        calcMidday();
+    var fbAttData = snap.val();
+    if (!fbAttData || typeof fbAttData !== 'object') return;
+
+    // MERGE strategy: Firebase data is source of truth
+    // Only update localStorage keys that exist in Firebase
+    // Do NOT delete local keys that aren't in Firebase (offline data)
+    Object.keys(fbAttData).forEach(function(dateKey) {
+      var fbDayData = fbAttData[dateKey];
+      if (fbDayData && Array.isArray(fbDayData) && fbDayData.length > 0) {
+        // Only overwrite local if Firebase has actual data for this date
+        D.s('att_' + dateKey, fbDayData);
       }
+    });
+
+    // Refresh current tab
+    refreshCurrentTab();
+
+    // Also refresh MDM if on midday tab
+    var activeTab = document.querySelector('.sl.active');
+    if (activeTab && activeTab.getAttribute('data-t') === 'midday') {
+      calcMidday();
     }
   };
+
   fbDB.ref(attPath).on('value', attHandler, function(err) {
-    console.warn('Attendance listener error:', err.message);
+    console.warn('Attendance listener error:', err ? err.message : '');
   });
   activeListeners[attPath] = attHandler;
 }
 
+// Listen to specific date attendance (called after saving)
 function listenAttDate(dt) {
-  // With the bulk listener above, individual date listeners are not needed
-  // But we keep this for compatibility
   if (!fbDB || !dt) return;
+  // The bulk listener on 'data/attendance' already covers this
+  // No-op: kept for compatibility
 }
 
-// ===== MANUAL SYNC =====
+// ===== MANUAL SYNC — PULL FIRST, THEN PUSH LOCAL CHANGES =====
 function manualSync() {
   if (!fbDB) { toast('Firebase नहीं — internet check करें', 0); return; }
+  if (!fbConnected) { toast('⚠️ Internet नहीं है अभी', 0); return; }
   setSyncUI('wait');
-  var data = {
-    students: D.g('students', []),
-    teachers: D.g('teachers', []),
-    pass: D.g('pass', 'gauri'),
-    viewer_pass: D.g('viewer_pass', 'viewer'),
-    finance: D.g('finance', []),
-    midday: D.g('midday', []),
-    holidays: D.g('holidays', []),
-    holiday_reasons: D.g('holiday_reasons', {}),
-    attendance: {}
-  };
-  for (var k in localStorage) {
-    if (k.startsWith('g_att_')) {
-      try { data.attendance[k.replace('g_att_', '')] = JSON.parse(localStorage.getItem(k)); } catch(e) {}
+
+  // Step 1: Pull latest attendance from Firebase (source of truth)
+  fbDB.ref('data/attendance').once('value').then(function(snap) {
+    var fbAtt = snap.val();
+    if (fbAtt && typeof fbAtt === 'object') {
+      Object.keys(fbAtt).forEach(function(dateKey) {
+        if (fbAtt[dateKey] && Array.isArray(fbAtt[dateKey]) && fbAtt[dateKey].length > 0) {
+          D.s('att_' + dateKey, fbAtt[dateKey]);
+        }
+      });
     }
-  }
-  fbDB.ref('data').set(data)
-    .then(function() { setSyncUI('ok'); toast('✅ Cloud sync!'); })
-    .catch(function(e) { setSyncUI('err'); toast('❌ Sync failed: ' + e.message, 0); });
+
+    // Step 2: Build complete data payload (local + pulled FB att merged)
+    var attData = {};
+    for (var k in localStorage) {
+      if (k.startsWith('g_att_')) {
+        try {
+          var dateKey = k.replace('g_att_', '');
+          var localAtt = JSON.parse(localStorage.getItem(k));
+          if (localAtt && localAtt.length > 0) {
+            attData[dateKey] = localAtt;
+          }
+        } catch(e) {}
+      }
+    }
+
+    var data = {
+      students: D.g('students', []),
+      teachers: D.g('teachers', []),
+      pass: D.g('pass', 'gauri'),
+      viewer_pass: D.g('viewer_pass', 'viewer'),
+      finance: D.g('finance', []),
+      midday: D.g('midday', []),
+      holidays: D.g('holidays', []),
+      holiday_reasons: D.g('holiday_reasons', {}),
+      attendance: attData
+    };
+
+    // Step 3: Push merged data back to Firebase
+    return fbDB.ref('data').set(data);
+  })
+  .then(function() {
+    setSyncUI('ok');
+    toast('✅ Cloud sync हो गया!');
+    refreshCurrentTab();
+  })
+  .catch(function(e) {
+    setSyncUI('err');
+    toast('❌ Sync failed: ' + e.message, 0);
+  });
 }
 
 // FIX: Report tab - pull fresh attendance from Firebase then render
@@ -1946,6 +2005,7 @@ function autoSaveAttendance() {
     if (r) { rec.push({sid: s.id, st: r.value}); anyMarked = true; }
   });
   if (!anyMarked) return;
+  // Merge with other classes' existing data for this date
   var ex = (D.g('att_' + dt, []) || []).filter(function(a) { return !ss.find(function(s) { return s.id === a.sid; }); });
   var final = ex.concat(rec);
   D.s('att_' + dt, final);
@@ -1958,13 +2018,11 @@ function autoSaveAttendance() {
     if (info) info.textContent = 'Class ' + clsEl.value + ': ' + p + 'P / ' + ab + 'A — ' + fmtDateIN(dt);
   }
   showAutosave('Class ' + clsEl.value + ': ' + p + 'P / ' + ab + 'A ✓');
-  // FIX: Now uses correct path via updated fbPush
+  // Push to Firebase — this triggers real-time listener on all connected devices
   fbPush('att_' + dt, final);
-  // FIX: Attendance change hone par MDM tab bhi refresh karo
+  // Update MDM count if same date is open
   var mDateEl = document.getElementById('mDate');
-  if (mDateEl && mDateEl.value === dt) {
-    calcMidday();
-  }
+  if (mDateEl && mDateEl.value === dt) { calcMidday(); }
 }
 
 function saveA() {
