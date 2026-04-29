@@ -1367,7 +1367,6 @@ function doLogin() {
   populateMonthSelector();
   go('dashboard');
   safeCreateIcons();
-  showAbhayBtn(true);
 
   if (fbDB) startRealtimeListeners();
   else setSyncUI('local');
@@ -1504,6 +1503,8 @@ function go(t) {
     case 'teachers': renderTeachers(); break;
     case 'settings': updateStorageUsage(); break;
   }
+  // Attendance tab pe chatbot hide karo — mobile mein absent button ke upar aa jata tha
+  showAbhayBtn(t !== 'attendance');
   setTimeout(safeCreateIcons, 50);
 }
 
@@ -2955,15 +2956,16 @@ function abhayAddMsg(text, type, id) {
   msgs.scrollTop = msgs.scrollHeight;
 }
 
-// Show/hide Abhay button based on login
+// Show/hide Abhay button based on login or tab
 function showAbhayBtn(show) {
   var btn = document.getElementById('abhayBtn');
   var panel = document.getElementById('abhayPanel');
   if (btn) { btn.classList.toggle('hidden-btn', !show); }
-  // If hiding (logout), also close panel
+  // If hiding, also close panel
   if (!show && panel) {
     panel.classList.remove('ai-open');
     panel.classList.add('ai-closed');
+    abhayOpen = false;
   }
 }
 
