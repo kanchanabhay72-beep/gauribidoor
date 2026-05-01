@@ -127,8 +127,8 @@ body { background: #f1f5f9; min-height: 100%; overscroll-behavior: none; }
 .sl:hover:not(.active) { background:rgba(20,184,166,.05); }
 
 .tc { display:none; }
-.tc.active { display:block; animation:fadeUp .4s ease-out; }
-.tr:hover { background:rgba(20,184,166,.025); }
+.tc.active { display:block; animation:fadeUp .35s cubic-bezier(.22,1,.36,1); }
+.tr:hover { background:rgba(20,184,166,.03); transition:background .15s; }
 
 input:focus, select:focus, textarea:focus { outline:none; border-color:#14b8a6 !important; box-shadow:0 0 0 3px rgba(20,184,166,.12); }
 .login-input { background:rgba(255,255,255,.9); border:2px solid rgba(20,184,166,.2); transition:all .3s; }
@@ -137,8 +137,8 @@ input:focus, select:focus, textarea:focus { outline:none; border-color:#14b8a6 !
 .login-btn { background:linear-gradient(135deg,#0f766e,#14b8a6); transition:all .3s; }
 .login-btn:hover { transform:translateY(-2px); box-shadow:0 10px 25px rgba(20,184,166,.4); }
 .login-btn:active { transform:translateY(0); }
-.sc { transition:all .3s cubic-bezier(.4,0,.2,1); }
-.sc:hover { transform:translateY(-3px); box-shadow:0 12px 25px -6px rgba(0,0,0,.1); }
+.sc { transition:all .2s cubic-bezier(.22,1,.36,1); }
+.sc:hover { transform:translateY(-3px); box-shadow:0 12px 28px -6px rgba(0,0,0,.09); }
 
 .att-radio-label {
   display:inline-flex; align-items:center; justify-content:center;
@@ -1634,19 +1634,25 @@ function updateDashMonthlyAtt() {
 }
 function calculateMonthlySummary(monthIndex, year) {
   var daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-  var totalPresent = 0, totalAbsent = 0, totalRecords = 0, workingDays = 0;
+  var totalPresent = 0, totalAbsent = 0, workingDays = 0;
+  // Use same logic as Report: count against ALL active students, not just saved records
+  var ss = (D.g('students', []) || []).filter(function(s) { return s.st === 'active'; });
+  var totalStudents = ss.length;
+  var activeIds = ss.map(function(s) { return s.id; });
   for (var d = 1; d <= daysInMonth; d++) {
     var dateStr = year + '-' + String(monthIndex + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+    if (new Date(dateStr + 'T12:00:00').getDay() === 0) continue; // skip Sunday
     if (isHolidayDate(dateStr)) continue;
     var att = D.g('att_' + dateStr, []) || [];
-    if (att.length > 0) {
+    var rel = att.filter(function(a) { return activeIds.indexOf(a.sid) !== -1; });
+    if (rel.length > 0) {
       workingDays++;
-      var pres = att.filter(function(a) { return a.st === 'present'; }).length;
+      var pres = rel.filter(function(a) { return a.st === 'present'; }).length;
       totalPresent += pres;
-      totalAbsent += att.length - pres;
-      totalRecords += att.length;
+      totalAbsent += totalStudents - pres; // same as Report: total students - present
     }
   }
+  var totalRecords = workingDays * totalStudents;
   var overallPct = totalRecords > 0 ? Math.round((totalPresent / totalRecords) * 100) : 0;
   var el = document.getElementById('dashMonthlyAttContent');
   if (!el) return;
